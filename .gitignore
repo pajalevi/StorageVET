@@ -3,6 +3,8 @@
 !/Python/
 */Plots/
 */Results/
+Results/*
+*.Rproj
 
 # Data files: CSV, XML, Excel, etc.
 *.csv
@@ -123,3 +125,4 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+.Rproj.user

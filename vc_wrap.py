@@ -16,6 +16,7 @@ import os
 import subprocess
 import shlex
 import datetime
+import sys
 
 SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"
 default_params_file = "Model_Parameters_2v1-0-2_default.csv"

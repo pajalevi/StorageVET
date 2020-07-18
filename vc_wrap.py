@@ -1,5 +1,5 @@
 """
-vs_wrapper_test.py
+vs_wrap.py
 
 This wrapper script encloses calls to run_StorageVET.py in a version control framework.
 It does the following
@@ -15,7 +15,6 @@ import pandas as pd
 import os
 import subprocess
 import shlex
-import
 import datetime
 
 SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"

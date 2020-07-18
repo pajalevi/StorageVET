@@ -42,7 +42,7 @@ def paramSetup(result_fol, runID_num, params, default_params_path = SVet_Path + 
     tag, key = p.split("_",1)
     filter_tag = default_params.Tag == tag
   
-    if(key == "Active"):
+    if(key == "Active" or key == "active"):
       #change activity of that tag
       filter_activation = default_params.Active !=  "."
       filter_all = filter_tag & filter_activation
@@ -109,7 +109,7 @@ def updateRunLog(SVet_Path, runs_log_file, description, shortname):
   date = datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S')
   
   # create entry in runs log
-  new_run_log_line = str(runID) + "," + date + "," + gitID + "," + shortname + "," + description + "\n" 
+  new_run_log_line = str(runID) + "," + date + "," + gitID + "," + shortname.replace(",",".") + "," + description.replace(",",".") + "\n" 
   # append line
   with open(SVet_Path + runs_log_file, 'a') as rl:
     rl.write(new_run_log_line)
@@ -122,6 +122,7 @@ def runWithVC(shortname, description, SVet_Path = SVet_Path, default_params_file
 runs_log_file = runs_log_file, **params):
   """calls paramSetup, creates result folder, updates runsLog, and runs StorageVET
   params arguments should have the format 'Tag_Key = 'Value' """
+  print(params)
   
   # update run log and get new runID
   runID_num = updateRunLog(SVet_Path, runs_log_file, description, shortname)
@@ -134,7 +135,7 @@ runs_log_file = runs_log_file, **params):
   newParams_path = paramSetup(result_fol, runID_num, params, default_params_path = SVet_Path + default_params_file)
   
   # call storageVET
-  runStorageVET(runID_num,newParams_path) 
+  runStorageVET(runID_num,newParams_path)
 
 # import importlib
 # importlib.reload(vc_wrap)  

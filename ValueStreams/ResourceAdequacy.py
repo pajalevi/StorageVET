@@ -190,12 +190,15 @@ class ResourceAdequacy(ValueStream):
 
         """
         report = pd.DataFrame(index=self.system_load.index)
+        report.index.name = "Start Datetime"
         report.loc[:, "System Load (kW)"] = self.system_load
         report.loc[:, 'RA Event (y/n)'] = False
         report.loc[self.event_intervals, 'RA Event (y/n)'] = True
         if self.dispmode:
+            self.discharge_min_constraint.index.name = "Start Datetime"
             report = pd.merge(report, self.discharge_min_constraint, how='left', on='Start Datetime')
         else:
+            self.energy_min_constraint.index.name = "Start Datetime"
             report = pd.merge(report, self.energy_min_constraint, how='left', on='Start Datetime')
         return report
 

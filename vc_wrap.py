@@ -32,6 +32,7 @@ def paramSetup(result_fol, runID_num, params, default_params_path = SVet_Path + 
   # add Results_dir_absolute_path and Results_label to params
   params['Results_dir_absolute_path'] = SVet_Path + "Results/" + result_fol
   params['Results_label'] = "_runID" + str(runID_num)
+  params['Results_errors_log_path'] = SVet_Path + "Results/" + result_fol + "/"
   
   #load default params csv
   default_params = pd.read_csv(SVet_Path + default_params_file)

@@ -110,7 +110,7 @@ def updateRunLog(SVet_Path, runs_log_file, description, shortname):
   date = datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S')
   
   # create entry in runs log
-  new_run_log_line = str(runID) + "," + date + "," + gitID + "," + shortname.replace(",",".") + "," + description.replace(",",".") + "\n" 
+  new_run_log_line =  "\n" + str(runID) + "," + date + "," + gitID + "," + shortname.replace(",",".") + "," + description.replace(",",".")
   # append line
   with open(SVet_Path + runs_log_file, 'a') as rl:
     rl.write(new_run_log_line)

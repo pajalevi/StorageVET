@@ -19,6 +19,7 @@ import datetime
 import sys
 
 SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"
+# SVet_Path = "/Applications/storagevet2v101/storagevet-1.0.1/" #old SVET, doesnt work
 default_params_file = "Model_Parameters_2v1-0-2_default.csv"
 runs_log_file = "Results/runsLog.csv"
 
@@ -72,6 +73,7 @@ def runStorageVET(runID_num, newParams_path, SVet_Path = SVet_Path):
     raise FileNotFoundError("Params file does not exist. Given path was " + newParams_path)
   # call StorageVET
   process = subprocess.Popen(["python","/Applications/storagevet2v101/StorageVET-master-git/run_storagevet.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
+  # process = subprocess.Popen(["python","/Applications/storagevet2v101/storagevet-1.0.1/run_storagevet.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
   # print output in realtime
   # while True:
   #   output = process.stdout.readline().decode()
@@ -102,8 +104,11 @@ def updateRunLog(SVet_Path, runs_log_file, description, shortname):
   # this must be called from within the git repo in order to work
   old_path = os.getcwd()
   os.chdir(SVet_Path)
-  gitID_raw = subprocess.check_output(['git','rev-parse','--short','HEAD']).strip()
-  gitID = gitID_raw.strip().decode('ascii')
+  try:
+    gitID_raw = subprocess.check_output(['git','rev-parse','--short','HEAD']).strip()
+    gitID = gitID_raw.strip().decode('ascii')
+  except:
+    gitID = "No git repository"
   os.chdir(old_path)
   
   #get date
@@ -117,7 +122,6 @@ def updateRunLog(SVet_Path, runs_log_file, description, shortname):
   
   #return runID
   return runID
-
   
 def runWithVC(shortname, description, SVet_Path = SVet_Path, default_params_file = default_params_file, 
 runs_log_file = runs_log_file, **params):
@@ -147,4 +151,5 @@ runs_log_file = runs_log_file, **params):
   
   
   
-  
+  # vc_wrap.runWithVC(shortname = "0.5h_SR",description = "SR duration requirement decreased to 0.5h, old svet",SR_active = "yes",DA_active = "yes",SR_duration = 0.5)
+

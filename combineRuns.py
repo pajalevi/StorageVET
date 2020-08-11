@@ -63,8 +63,6 @@ SVet_Path = SVet_Path, default_params_file = default_params_file, runs_log_file 
   # run svet via vc_wrap
   
   
-  
-  
 # function resource does the following
 # read in timeseries of dispatch
 # identify appropriate columns
@@ -79,11 +77,13 @@ def resType_to_fn(resType,resultsPath,resHour,regScenario):
   }
   func = switch_case.get(resType) #get returns the value of the item associated with key
   func(resultsPath,resHour,regScenario) #TODO: define inputs
+#end resType_to_fn
 
-# runID = 103
-# regScenario = 1
-# resHour = [14,20]
-# resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_NSR_only/"#"timeseries_results_runID" + str(runID) + ".csv"  
+
+runID = 103
+regScenario = 1
+resHour = [14,20]
+resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_NSR_only/"#"timeseries_results_runID" + str(runID) + ".csv"
 def nsrFn(resultsPath, runID, resHour, regScenario):
   """create user constraints for nsr within window defined by resHour 
   according to the logic of the regScenario """
@@ -100,7 +100,6 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
   # nsr creates energy constraints, so we return only those
   # start by pre-filling output with dummy constraints that dont do anything - just replicate batt params
   output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["chgMin_kW","eMin_kWh"])  
-  output.loc[:,"eMax_kWh"] = battcap
   output.loc[:,"eMin_kWh"] = battcap * (minsoc/100)
   
   # load timeseries - has prices, results
@@ -129,7 +128,7 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
     value = sum(valueseries[ll])
 
   elif regScenario == 2:
-    except("regScenario 2 has not been coded yet")
+    raise ValueError("regScenario 2 has not been coded yet")
   elif regScenario == 3:
     #create reservations based on previous dispatch
     # colnames = ['Non-spinning Reserve (Charging) (kW)','Non-spinning Reserve (Discharging) (kW)']
@@ -139,17 +138,23 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
     output.loc[:,'chgMin_kW'] = chgres
 
     valueseries = timeseries.loc[:,"NSR Price Signal ($/kW)"] * (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)'])
+    ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
+    value = sum(valueseries[ll])
   else:
-    except("regScenario must be 1, 2 or 3")
+    raise ValueError("regScenario must be 1, 2 or 3")
     
   return(output, value)
 #end nsrFn    
   
-runID = 107
-regScenario = 1
-resHour = [14,20]
-resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_4h_SR/"#"timeseries_results_runID" + str(runID) + ".csv"  
-def srFn(resultsPath, resHour, regScenario):
+# # runID = 107
+runID = 108
+# runID = 109
+# regScenario = 1
+# resHour = [14,20]
+# # resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_4h_SR/"#"timeseries_results_runID" + str(runID) + ".csv"
+resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_1h_SR/"#"timeseries_results_runID" + str(runID) + ".csv"
+# resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_0.5h_SR/"#"timeseries_results_runID" + str(runID) + ".csv"
+def srFn(resultsPath, runID, resHour, regScenario):
   """create user constraints for sr within window defined by resHour 
   according to the logic of the regScenario """
   print("srFn called")
@@ -202,12 +207,74 @@ def srFn(resultsPath, resHour, regScenario):
     
     valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)'])
     # this won't match the objective_values.csv values because those do not take into account model predictive control for SR in which last chunk of run is discarded
+    ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
+    value = sum(valueseries[ll])
   else:
     raise ValueError("regScenario must be 1, 2 or 3")
     
   return(output, value)
 #end srFn
 
+runID = 110
+regScenario = 1
+resHour = [14,20]
+resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_FR_only/"
+def frFn(resultsPath, runID, resHour, regScenario):
+  """create user constraints for frequency regulation within window defined by resHour 
+  according to the logic of the regScenario """
+  print("frFn called")
+
+  # load parameter file for run
+  params = pd.read_csv(resultsPath + "params_run" + str(runID) + ".csv")
+  battpwr = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ch_max_rated'),'Value'].values[0]) 
+  battcapmax = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ene_max_rated'),'Value'].values[0]) 
+  maxsoc = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ulsoc'),'Value'].values[0]) 
+  minsoc = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'llsoc'),'Value'].values[0]) 
+  splitmktTF = bool(params.loc[(params['Tag'] == 'FR') & (params['Key'] == 'CombinedMarket'),'Value'].values[0])
+
+    # start by pre-filling output with dummy constraints that dont do anything - just replicate batt params
+  output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["eMax_kWh","eMin_kWh"])  
+  output.loc[:,"eMin_kWh"] = battcapmax * (minsoc/100)
+  output.loc[:,"eMax_kWh"] = battcapmax * (maxsoc/100)
   
-  
-#make a short fn to calculate batt efficiency from timeseries output?
+  # load timeseries - has prices, results
+  timeseries = pd.read_csv(resultsPath + "timeseries_results_runID" + str(runID) + ".csv"  )
+  timeseries["date"] = pd.to_datetime(timeseries['Start Datetime (hb)'])
+  timeseries = timeseries.set_index('date') 
+
+  if regScenario == 1:
+    ## create reservations based on resHours
+    ### ID duration of fr commitment & batt storage size -> calculate energy reservation requirement
+    #TODO: account for different ch/disch, and CHARGING EFFICIENCY
+    dur = float(params.loc[(params['Tag'] == 'FR') & (params['Key'] == 'duration'),'Value'].values[0])
+    if dur >1:
+      nrgres = battpwr #here we convert from power (kW) to energy (kWh)
+    else:
+      nrgres = battpwr * (1/dur)
+    ## insert into output during approppriate times
+    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMin_kWh'] = nrgres + (battcapmax * minsoc/100)
+    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMax_kWh'] = (battcapmax * maxsoc/100) - nrgres
+    
+    # calculate value - multiply FR price signal by battpwr for every active hour
+#    valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * battpwr
+    ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
+    value = sum(valueseries[ll])
+
+  elif regScenario == 2:
+    raise ValueError("regScenario 2 has not been coded yet")
+  elif regScenario == 3:
+    #create reservations based on previous dispatch
+    # colnames = ['Non-spinning Reserve (Charging) (kW)','Non-spinning Reserve (Discharging) (kW)']
+#    minres = timeseries['Spinning Reserve (Discharging) (kW)'] + (battcapmax * minsoc/100)
+#    chgres = timeseries['Spinning Reserve (Charging) (kW)']
+    output.loc[:,'eMin_kWh'] = minres
+    output.loc[:,'chgMin_kW'] = chgres
+    
+#    valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)'])
+    # this won't match the objective_values.csv values because those do not take into account model predictive control for SR in which last chunk of run is discarded
+    ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
+    value = sum(valueseries[ll])
+  else:
+    raise ValueError("regScenario must be 1, 2 or 3")
+    
+  return(output, value)

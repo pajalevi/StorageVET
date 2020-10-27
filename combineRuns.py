@@ -235,8 +235,8 @@ def srFn(resultsPath, runID, resHour, regScenario):
     # min res = timeseries['Spinning Reserve (Discharging) (kW)'] + (battcapmax * minsoc/100)
     # chgres = timeseries['Spinning Reserve (Charging) (kW)']
     #avoid infeasibility
-    sel = (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)']) == battpwr*2
-    timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] -1
+    sel = (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)']) >= battpwr*2
+    timeseries.loc[sel,'Spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Spinning Reserve (Discharging) (kW)'] -1
 
     chgmin = -1*(battpwrd - timeseries['Spinning Reserve (Discharging) (kW)'])
     chgmax = battpwr - timeseries['Spinning Reserve (Charging) (kW)']

@@ -145,6 +145,11 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
     # chgres = timeseries['Non-spinning Reserve (Charging) (kW)']
     # output.loc[:,'eMin_kWh'] = minres
     # output.loc[:,'chgMin_kW'] = chgres
+    
+    #avoid infeasibility: pwrmin and pwrmax must not be equal. (same for energy)
+    sel = (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)']) == battpwr*2
+    timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] -1
+      
     chgmin = -1*(battpwrd - timeseries['Non-spinning Reserve (Discharging) (kW)'])
     chgmax = battpwr - timeseries['Non-spinning Reserve (Charging) (kW)']
     pwrmin = (battcapmax * (minsoc / 100)) + timeseries['Non-spinning Reserve (Discharging) (kW)']
@@ -229,6 +234,10 @@ def srFn(resultsPath, runID, resHour, regScenario):
     # colnames = ['Non-spinning Reserve (Charging) (kW)','Non-spinning Reserve (Discharging) (kW)']
     # min res = timeseries['Spinning Reserve (Discharging) (kW)'] + (battcapmax * minsoc/100)
     # chgres = timeseries['Spinning Reserve (Charging) (kW)']
+    #avoid infeasibility
+    sel = (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)']) == battpwr*2
+    timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] -1
+
     chgmin = -1*(battpwrd - timeseries['Spinning Reserve (Discharging) (kW)'])
     chgmax = battpwr - timeseries['Spinning Reserve (Charging) (kW)']
     pwrmin = (battcapmax * (minsoc / 100)) + timeseries['Spinning Reserve (Discharging) (kW)']
@@ -335,8 +344,8 @@ basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries.csv")
 basedata = basedata.set_index(x.index)
 basedata['Power Min (kW)'] = x['chgMin_kW']
 basedata['Power Max (kW)'] = x['chgMax_kW']
-basedata['Energy Max (kWh)'] = x['eMin_kWh']
-basedata['Energy Min (kWh)'] = x['eMax_kWh']
+basedata['Energy Max (kWh)'] = x['eMax_kWh']
+basedata['Energy Min (kWh)'] = x['eMin_kWh']
 basedata.to_csv(SVet_Path + "Data/hourly_timeseries_"+ID+".csv")
 f = open(SVet_Path + "Data/user_constraints/values.csv","a")
 # f.write("ID,value\n")

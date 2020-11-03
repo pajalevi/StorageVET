@@ -18,7 +18,7 @@ import shlex
 import datetime
 import sys
 
-SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/"
+SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"#storagevet_dervet/"
 # SVet_Path = "/Applications/storagevet2v101/storagevet-1.0.1/" #old SVET, doesnt work
 default_params_file = "Model_Parameters_Template2v1-0-2.csv"#"Model_Parameters_2v1-0-2_default.csv"
 runs_log_file = "Results/runsLog.csv"
@@ -72,8 +72,8 @@ def runStorageVET(runID_num, newParams_path, SVet_Path = SVet_Path):
   if(not(os.path.exists(newParams_path))):
     raise FileNotFoundError("Params file does not exist. Given path was " + newParams_path)
   # call StorageVET
-  process = subprocess.Popen(["python","/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/run_StorageVET.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
-  # process = subprocess.Popen(["python","/Applications/storagevet2v101/storagevet-1.0.1/run_storagevet.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
+  # process = subprocess.Popen(["python","/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/run_StorageVET.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
+  process = subprocess.Popen(["python","/Applications/storagevet2v101/StorageVET-master-git/run_StorageVET.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)  # process = subprocess.Popen(["python","/Applications/storagevet2v101/storagevet-1.0.1/run_storagevet.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
   # print output in realtime
   # while True:
   #   output = process.stdout.readline().decode()

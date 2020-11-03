@@ -298,12 +298,10 @@ def frFn(resultsPath, runID, resHour, regScenario):
     ## insert into output during approppriate times
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMin_kWh'] = nrgres + (battcapmax * minsoc/100)
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMax_kWh'] = (battcapmax * maxsoc/100) - nrgres
-
     # calculate value - multiply FR price signal by battpwr for every active hour
-#    valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * battpwr
+    # valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * battpwr
     ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
     value = sum(valueseries[ll])
-
   elif regScenario == 2:
     raise ValueError("regScenario 2 has not been coded yet")
   elif regScenario == 3:
@@ -313,7 +311,6 @@ def frFn(resultsPath, runID, resHour, regScenario):
 #    chgres = timeseries['Spinning Reserve (Charging) (kW)']
     output.loc[:,'eMin_kWh'] = minres
     output.loc[:,'chgMin_kW'] = chgres
-
 #    valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)'])
     # this won't match the objective_values.csv values because those do not take into account model predictive control for SR in which last chunk of run is discarded
     ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
@@ -323,6 +320,82 @@ def frFn(resultsPath, runID, resHour, regScenario):
 
   return(output, value)
 
+def ra0Fn(resultsPath, runID, resHour, regScenario):
+   """create user constraints for RA dispmode 0 within window defined by resHour
+  according to the logic of the regScenario """
+  print("ra0Fn called")
+
+  # load parameter file for run
+  params = pd.read_csv(resultsPath + "params_run" + str(runID) + ".csv")
+  battpwr = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ch_max_rated'),'Value'].values[0])
+  battpwrd = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'dis_max_rated'),'Value'].values[0])
+  battcapmax = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ene_max_rated'),'Value'].values[0])
+  maxsoc = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ulsoc'),'Value'].values[0])
+  minsoc = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'llsoc'),'Value'].values[0])
+  battcap = battcapmax * (maxsoc / 100)
+  rte = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'rte'),'Value'].values[0])/100
+  ralength = minsoc = float(params.loc[(params['Tag'] == 'RA') & (params['Key'] == 'length'),'Value'].values[0])
+  
+  # Load hourly_timeseries so that we can edit this file to create our desired scenario
+  basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries_v2.csv")
+  basedata = basedata.set_index(pd.date_range(start="1/1/2017",periods=8760,freq="h"))
+  basedata['Power Min (kW)'] = battpwr * -1
+  basedata['Power Max (kW)'] = battpwr
+  basedata['Energy Max (kWh)'] = battcap * (maxsoc/100)
+  basedata['Energy Min (kWh)'] = battcap * (minsoc/100)
+
+
+  # output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
+  # output.loc[:,"eMin_kWh"] = battcap * (minsoc/100)
+  # output.loc[:,"eMax_kWh"] = battcap * (maxsoc/100)
+  # output.loc[:,"chgMin_kW"] = battpwr * -1
+  # output.loc[:,"chgMax_kW"] = battpwr
+
+  # load timeseries - has prices, results
+  timeseries = pd.read_csv(resultsPath + "timeseries_results_runID" + str(runID) + ".csv"  )
+  timeseries["date"] = pd.to_datetime(timeseries['Start Datetime (hb)'])
+  timeseries = timeseries.set_index('date')
+
+  if regScenario == 1: #create energy reservations based on reshours & change prices
+    output.loc[(output.index.hour == resHour[0]) ,'eMin_kWh'] = ralength * battpwrd #SOC must be sufficient at beginning of each RA perio
+    # how do I prevent the batt from participating in other services during this window, except for energy arbitrage?
+    # could change the prices of other services so that they are negative
+    # can't really retain energy arbitrage and forego the others...
+    #ok so what would 'RA only' look like? we've got the energy reservation... 
+
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Min (kW)'] = (battcapmax * (minsoc / 100)) + battpwr#nrgres + (battcapmax * minsoc/100)
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Max (kW)'] = battcap - rte*battpwr
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Max (kWh)'] = -1
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Min (kWh)'] = 1
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'FR Price ($/kW)'] = 0
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Reg Up Price ($/kW)'] = 0
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Reg Down Price ($/kW)'] = 0
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'NSR Price ($/kW)'] = 0
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'SR Price ($/kW)'] = 0
+
+    # calculate value - how is this done for RA rn? Ra capacity price ($/kW/mo) * mos * battpwr
+
+  elif regScenario == 2: # create onesided reservations based on reshours
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Min (kW)'] = (battcapmax * (minsoc / 100)) + battpwr#nrgres + (battcapmax * minsoc/100)
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Max (kW)'] = battcap - rte*battpwr
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Max (kWh)'] = -1
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Min (kWh)'] = 1
+
+  elif regScenario == 3: # create reservations based on prev dispatch
+    sel = (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)']) >= battpwr*2
+    timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] -1
+    
+    pwrmin = timeseries['RA Energy Min (kWh)']
+    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Min (kWh)'] == pwrmax.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1])]
+
+    valueseries = timeseries.loc[:,"NSR Price Signal ($/kW)"] * (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)'])
+    ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
+    value = sum(valueseries[ll])
+  else:
+    raise ValueError("regScenario must be 1, 2 or 3")
+
+  output = basedata
+  return(output,value)
 
 # to save a csv:
   # save new params in results folder

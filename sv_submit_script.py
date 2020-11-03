@@ -1,6 +1,8 @@
 #submit_script.py
-
-import vc_wrap
+# if needed
+import sys
+sys.path.append('../')
+import vc_wrap as vc
 
 # make a list of sets of arguments
 
@@ -47,3 +49,15 @@ NSR_active='yes',DA_active = 'yes', RA_active='yes', RA_dispmode = 0, User_activ
 vc.runWithVC(shortname = "comparison_sr_RS1_14-20", description = "no user constraints. all else same. RA dispmode 0",
 Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_sr_RS1_14-20.csv", SR_active='yes',
 NSR_active='yes',DA_active = 'yes', RA_active='yes', RA_dispmode = 0, User_active = 'no')
+
+
+
+vc.runWithVC(shortname = "test_dervet", description = "testing dervet's version of svet",
+Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_v2.csv", SR_active='yes',
+NSR_active='yes',DA_active = 'yes', RA_active='yes', RA_dispmode = 0, User_active = 'no')
+
+vc.runWithVC(shortname = "test_dervet", description = "testing dervet's version of svet with deferral",
+Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_v2.csv", SR_active='yes',
+NSR_active='yes',DA_active = 'yes', RA_active='yes', RA_dispmode = 0, User_active = 'no', Deferral_active='yes')
+
+  

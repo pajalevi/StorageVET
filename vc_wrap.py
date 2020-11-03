@@ -18,9 +18,9 @@ import shlex
 import datetime
 import sys
 
-SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"
+SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/"
 # SVet_Path = "/Applications/storagevet2v101/storagevet-1.0.1/" #old SVET, doesnt work
-default_params_file = "Model_Parameters_2v1-0-2_default.csv"
+default_params_file = "Model_Parameters_Template2v1-0-2.csv"#"Model_Parameters_2v1-0-2_default.csv"
 runs_log_file = "Results/runsLog.csv"
 
 #params = {'ICE_Active': 'yes', 'DR_days': 20, 'RA_idmode' : 'Peak by Month'} # for testing
@@ -31,7 +31,7 @@ def paramSetup(result_fol, runID_num, params, default_params_path = SVet_Path + 
   must have the format 'Tag_Key'  """
   
   # add Results_dir_absolute_path and Results_label to params
-  params['Results_dir_absolute_path'] = SVet_Path + "Results/" + result_fol
+  params['Results_dir_absolute_path'] = SVet_Path + "Results/" + result_fol + "/"
   params['Results_label'] = "_runID" + str(runID_num)
   params['Results_errors_log_path'] = SVet_Path + "Results/" + result_fol + "/"
   
@@ -72,7 +72,7 @@ def runStorageVET(runID_num, newParams_path, SVet_Path = SVet_Path):
   if(not(os.path.exists(newParams_path))):
     raise FileNotFoundError("Params file does not exist. Given path was " + newParams_path)
   # call StorageVET
-  process = subprocess.Popen(["python","/Applications/storagevet2v101/StorageVET-master-git/run_storagevet.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
+  process = subprocess.Popen(["python","/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/run_StorageVET.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
   # process = subprocess.Popen(["python","/Applications/storagevet2v101/storagevet-1.0.1/run_storagevet.py",newParams_path], stdout=sys.stdout) #stdout=subprocess.PIPE)
   # print output in realtime
   # while True:

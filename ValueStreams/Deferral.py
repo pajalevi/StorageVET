@@ -89,6 +89,11 @@ class Deferral(ValueStream):
 
         while current_year <= end_year.year:
             size = len(self.load)
+            print("current year is " + str(current_year))
+            print("self.load.size:")
+            print(self.load.size)
+            print("size of technologies['Load'].site_load.values:")
+            print(technologies['Load'].site_load.values.size)
             print('current year: ' + str(current_year)) if self.verbose else None
             years_deferral_column.append(current_year)
 
@@ -101,8 +106,24 @@ class Deferral(ValueStream):
             if 'PV' in technologies.keys():
                 generation += technologies['PV'].generation.values
             load = np.zeros(size)
+            print("load type:")
+            print(type(load))
+            print("load shape:")
+            print(load.shape)
+            print("load:")
+            print(load)
             if 'Load' in technologies.keys():
-                load += technologies['Load'].site_load.values
+                # deal with possibility that self.load is 2+ years while technologies['Load'].site_load.values is only one
+                if load.shape[0] > technologies['Load'].site_load.values.shape[0]:
+                  ratio = load.shape[0] / technologies['Load'].site_load.values.shape[0]
+                  print("ratio of lengths is  " + str(ratio))
+                  technologies_load_site_load = np.tile(technologies['Load'].site_load.values, int(ratio))
+                  load += technologies_load_site_load
+                else:
+                  load += technologies['Load'].site_load.values
+            print("load shape after addition of technologies['Load].site_load.values :")
+            print(load.shape)
+            print(load)
             min_power, min_energy = self.precheck_failure(self.dt, rte, load, generation)
             print(f'In {current_year} -- min power: {min_power}  min energy: {min_energy }') if self.verbose else None
             min_power_deferral_column.append(min_power)
@@ -224,6 +245,8 @@ class Deferral(ValueStream):
             frequency (str): period frequency of the timeseries data
 
         """
+        print("years passed to estimate year data:")
+        print(years)
         data_year = self.load.index.year.unique()
 
         # which years is data given for that is not needed

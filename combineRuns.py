@@ -101,7 +101,7 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
 
   # nsr creates energy constraints, so we return only those
   # start by pre-filling output with dummy constraints that dont do anything - just replicate batt params
-  output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
+  output = pd.DataFrame(index = pd.date_range(start="1/1/2019",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
   output.loc[:,"eMin_kWh"] = battcap * (minsoc/100)
   output.loc[:,"eMax_kWh"] = battcap * (maxsoc/100)
   output.loc[:,"chgMin_kW"] = battpwr * -1
@@ -159,7 +159,6 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMin_kWh'] = pwrmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMax_kWh'] = pwrmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
 
-
     valueseries = timeseries.loc[:,"NSR Price Signal ($/kW)"] * (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)'])
     ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
     value = sum(valueseries[ll])
@@ -194,7 +193,7 @@ def srFn(resultsPath, runID, resHour, regScenario):
 
   # sr creates energy constraints, so we return only those
   # start by pre-filling output with dummy constraints that dont do anything - just replicate batt params
-  output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
+  output = pd.DataFrame(index = pd.date_range(start="1/1/2019",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
   output.loc[:,"eMin_kWh"] = battcap * (minsoc/100)
   output.loc[:,"eMax_kWh"] = battcap * (maxsoc/100)
   output.loc[:,"chgMin_kW"] = battpwr * -1
@@ -275,7 +274,7 @@ def frFn(resultsPath, runID, resHour, regScenario):
   splitmktTF = bool(params.loc[(params['Tag'] == 'FR') & (params['Key'] == 'CombinedMarket'),'Value'].values[0])
 
     # start by pre-filling output with dummy constraints that dont do anything - just replicate batt params
-  output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
+  output = pd.DataFrame(index = pd.date_range(start="1/1/2019",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
   output.loc[:,"eMin_kWh"] = battcap * (minsoc/100)
   output.loc[:,"eMax_kWh"] = battcap * (maxsoc/100)
   output.loc[:,"chgMin_kW"] = battpwr * -1
@@ -320,11 +319,10 @@ def frFn(resultsPath, runID, resHour, regScenario):
 
   return(output, value)
 
-def ra0Fn(resultsPath, runID, resHour, regScenario):
-   """create user constraints for RA dispmode 0 within window defined by resHour
+def ra0Fn(resultsPath, runID, resHour, regScenario, kwmo_value = 5):
+  """create user constraints for RA dispmode 0 within window defined by resHour
   according to the logic of the regScenario """
   print("ra0Fn called")
-
   # load parameter file for run
   params = pd.read_csv(resultsPath + "params_run" + str(runID) + ".csv")
   battpwr = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'ch_max_rated'),'Value'].values[0])
@@ -337,36 +335,32 @@ def ra0Fn(resultsPath, runID, resHour, regScenario):
   ralength = minsoc = float(params.loc[(params['Tag'] == 'RA') & (params['Key'] == 'length'),'Value'].values[0])
   
   # Load hourly_timeseries so that we can edit this file to create our desired scenario
-  basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries_v2.csv")
-  basedata = basedata.set_index(pd.date_range(start="1/1/2017",periods=8760,freq="h"))
+  basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries_2019.csv")
+  basedata = basedata.set_index(pd.date_range(start="1/1/2019",periods=8760,freq="h"))
   basedata['Power Min (kW)'] = battpwr * -1
   basedata['Power Max (kW)'] = battpwr
   basedata['Energy Max (kWh)'] = battcap * (maxsoc/100)
   basedata['Energy Min (kWh)'] = battcap * (minsoc/100)
 
 
-  # output = pd.DataFrame(index = pd.date_range(start="1/1/2017",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
+  # output = pd.DataFrame(index = pd.date_range(start="1/1/2019",periods=8760,freq="h"), columns = ["chgMin_kW","chgMax_kW","eMin_kWh","eMax_kWh"])
   # output.loc[:,"eMin_kWh"] = battcap * (minsoc/100)
   # output.loc[:,"eMax_kWh"] = battcap * (maxsoc/100)
   # output.loc[:,"chgMin_kW"] = battpwr * -1
   # output.loc[:,"chgMax_kW"] = battpwr
 
   # load timeseries - has prices, results
-  timeseries = pd.read_csv(resultsPath + "timeseries_results_runID" + str(runID) + ".csv"  )
-  timeseries["date"] = pd.to_datetime(timeseries['Start Datetime (hb)'])
-  timeseries = timeseries.set_index('date')
+  # timeseries = pd.read_csv(resultsPath + "timeseries_results_runID" + str(runID) + ".csv"  )
+  # timeseries["date"] = pd.to_datetime(timeseries['Start Datetime (hb)'])
+  # timeseries = timeseries.set_index('date')
 
   if regScenario == 1: #create energy reservations based on reshours & change prices
-    output.loc[(output.index.hour == resHour[0]) ,'eMin_kWh'] = ralength * battpwrd #SOC must be sufficient at beginning of each RA perio
     # how do I prevent the batt from participating in other services during this window, except for energy arbitrage?
     # could change the prices of other services so that they are negative
     # can't really retain energy arbitrage and forego the others...
     #ok so what would 'RA only' look like? we've got the energy reservation... 
 
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Min (kW)'] = (battcapmax * (minsoc / 100)) + battpwr#nrgres + (battcapmax * minsoc/100)
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Max (kW)'] = battcap - rte*battpwr
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Max (kWh)'] = -1
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Min (kWh)'] = 1
+    basedata.loc[(basedata.index.hour == resHour[0]),'Energy Min (kWh)'] = battpwrd * ralength #SOC must be sufficient at beginning of each RA period
     basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'FR Price ($/kW)'] = 0
     basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Reg Up Price ($/kW)'] = 0
     basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Reg Down Price ($/kW)'] = 0
@@ -374,27 +368,18 @@ def ra0Fn(resultsPath, runID, resHour, regScenario):
     basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'SR Price ($/kW)'] = 0
 
     # calculate value - how is this done for RA rn? Ra capacity price ($/kW/mo) * mos * battpwr
+    # I can do this in post-process
 
   elif regScenario == 2: # create onesided reservations based on reshours
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Min (kW)'] = (battcapmax * (minsoc / 100)) + battpwr#nrgres + (battcapmax * minsoc/100)
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Power Max (kW)'] = battcap - rte*battpwr
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Max (kWh)'] = -1
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Min (kWh)'] = 1
-
+    basedata.loc[(basedata.index.hour == resHour[0]),'Energy Min (kWh)'] = battpwrd * ralength #SOC must be sufficient at beginning of each RA period
+ 
   elif regScenario == 3: # create reservations based on prev dispatch
-    sel = (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)']) >= battpwr*2
-    timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] -1
-    
-    pwrmin = timeseries['RA Energy Min (kWh)']
-    basedata.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1]),'Energy Min (kWh)'] == pwrmax.loc[(basedata.index.hour >= resHour[0]) & (basedata.index.hour <= resHour[1])]
-
-    valueseries = timeseries.loc[:,"NSR Price Signal ($/kW)"] * (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)'])
-    ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
-    value = sum(valueseries[ll])
+    raise ValueError("recScenario 3 doesn't exsit yet for RA")
   else:
     raise ValueError("regScenario must be 1, 2 or 3")
 
   output = basedata
+  value = kwmo_value * battpwrd * 12
   return(output,value)
 
 # to save a csv:

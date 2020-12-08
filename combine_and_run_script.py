@@ -4,9 +4,16 @@ SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"
 # x.to_csv(SVet_Path + "Data/user_constraints/userconstraints_nsr133_rs1_0-23.csv")
 # pd.DataFrame({'value':y},index=[1]).to_csv(SVet_Path + "Data/user_constraints/value_nsr133_rs1_0-23.csv")
 
+vc.runWithVC(shortname = "fr_only2019", description = "only FR 2019 data",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_2019.csv", SR_active='no',
+             NSR_active='no',DA_active = 'yes', RA_active='no', RA_dispmode = 0, User_active = 'no', FR_active = "yes", FR_CombinedMarket = "0")
+
 vc.runWithVC(shortname = "nsr_sr_fr_comparison2019", description = "baseline for nsr and sr runs with fr. RA dispmode 0. 2019 data",
              Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_2019.csv", SR_active='yes',
              NSR_active='yes',DA_active = 'yes', RA_active='yes', RA_dispmode = 0, User_active = 'no', FR_active = "yes", FR_CombinedMarket = "0")
+vc.runWithVC(shortname = "nsr_sr_fr_noRA_comparison2019", description = "baseline for nsr and sr runs with fr. RA dispmode 0. 2019 data",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_2019.csv", SR_active='yes',
+             NSR_active='yes',DA_active = 'yes', RA_active='no', RA_dispmode = 0, User_active = 'no', FR_active = "yes", FR_CombinedMarket = "0")
 
 vc.runWithVC(shortname = "nsr_sr_comparison2019", description = "baseline for nsr and sr runs. RA dispmode 0. 2019 data",
              Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_2019.csv", SR_active='yes',
@@ -200,3 +207,20 @@ x.to_csv(SVet_Path+"Data/hourly_timeseries"+ID+".csv", index=False)
 vc.runWithVC(shortname = ID, description = "user constraints for RA every day 13-19. rs2",
              Scenario_time_series_filename = SVet_Path+"Data/hourly_timeseries"+ID+".csv", SR_active='no',
              NSR_active='no',DA_active = 'no', RA_active='no', User_active = 'yes', User_price = y)
+
+## FR scenarios, Dec 8th 
+runID  = 154
+resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_FR_only2019/"
+x,y = cr.frFn(resultsPath, runID, [0,23],3)  
+ID = "fr154_rs3_24h"
+basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries_2019.csv")
+basedata = basedata.set_index(x.index)
+basedata['Power Min (kW)'] = x['chgMin_kW']
+basedata['Power Max (kW)'] = x['chgMax_kW']
+basedata['Energy Max (kWh)'] = x['eMax_kWh']
+basedata['Energy Min (kWh)'] = x['eMin_kWh']
+basedata.to_csv(SVet_Path + "Data/hourly_timeseries_"+ID+".csv")
+vc.runWithVC(shortname = ID, description = "user constraints for fr based on run 154 for 0-23h. no RA",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_"+ID+".csv", SR_active='yes',
+             NSR_active='yes',DA_active = 'yes', RA_active='no', RA_dispmode = 0, FR_active = 'no',User_active = 'yes', User_price = y)
+

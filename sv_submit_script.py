@@ -31,6 +31,9 @@ for i in range(0,len(arglist)):
 # 'DA_Active' :'no','SR_Active' : 'yes'}]
 # testargs = [{'shortname':"test",'description':"testing out vc wrapper", 'PV_Active' : 'yes', 'ICE_ccost' : 2000}]
 
+  arglist = {'shortname' :"baseline",'description':"all active", 'DA_active' :'yes','Deferral_active' : 'yes'}
+  vc_wrap.runWithVC(**arglist)
+
   arglist = {'shortname' :"Deferral_only",'description':"Deferral active only.", 'DA_active' :'no','Deferral_active' : 'yes'}
   vc_wrap.runWithVC(**arglist)
 

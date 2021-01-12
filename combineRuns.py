@@ -190,6 +190,7 @@ def srFn(resultsPath, runID, resHour, regScenario):
   minsoc = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'llsoc'),'Value'].values[0])
   battcap = battcapmax * (maxsoc / 100)
   rte = float(params.loc[(params['Tag'] == 'Battery') & (params['Key'] == 'rte'),'Value'].values[0])/100
+  srdur = float(params.loc[(params['Tag'] == 'SR') & (params['Key'] == 'duration'),'Value'].values[0])
 
   # sr creates energy constraints, so we return only those
   # start by pre-filling output with dummy constraints that dont do anything - just replicate batt params
@@ -236,11 +237,20 @@ def srFn(resultsPath, runID, resHour, regScenario):
     #avoid infeasibility
     sel = (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)']) >= battpwr*2
     timeseries.loc[sel,'Spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Spinning Reserve (Discharging) (kW)'] -1
-
-    chgmin = -1*(battpwrd - timeseries['Spinning Reserve (Discharging) (kW)'])
-    chgmax = battpwr - timeseries['Spinning Reserve (Charging) (kW)']
-    pwrmin = (battcapmax * (minsoc / 100)) + timeseries['Spinning Reserve (Discharging) (kW)']
-    pwrmax = battcap - rte*timeseries['Spinning Reserve (Charging) (kW)']
+    
+    # determine max and min chg and pwr needed to provide previously provided SR
+    # state of charge
+    # for SRc, SOC max isn't an issue - can always just charge less. SOC min isn't really an issue either
+    # for SRd, SOC max also isn't an issue, but SOC min is an issue - need to be able to sustain that much discharge 
+    #     for the duration required by the SR market
+    chgmin = (battcapmax * (minsoc / 100)) + srdur * timeseries['Spinning Reserve (Discharging) (kW)']
+    chgmax = battcap * (maxsoc/100)#battpwr - timeseries['Spinning Reserve (Charging) (kW)']
+    # power level
+    # negative power is charging
+    # if batt is providing spinning reserve (charging), then max power is -(SR chg) [must be charging at least that much]
+    # if batt is providing spinning reserve (discharging), then min power is (battpowerd - SR dis)  [must not be discharging more than this]
+    pwrmin = battpwrd - timeseries['Spinning Reserve (Discharging) (kW)']
+    pwrmax = -1 * timeseries['Spinning Reserve (Charging) (kW)']
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'chgMin_kW'] = chgmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'chgMax_kW'] = chgmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMin_kWh'] = pwrmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
@@ -328,11 +338,21 @@ def frFn(resultsPath, runID, resHour, regScenario):
     nrgmin = (battcap * (minsoc/100)) + timeseries['FR Energy Throughput (kWh)'] - chgmax # positive throuput is discharging. chgmax is negative to indicate required discharging
     # nrgmin = battcap + timeseries['Spinning Reserve (Discharging) (kW)']
     # nrgmax = battcap - rte*timeseries['Spinning Reserve (Charging) (kW)']
+    
+    #avoid infeasibility
+    sel = (chgmin + chgmax) >= battpwr*2  # both at max
+    chgmin.loc[sel] = chgmin.loc[sel] -1
+    sel = (chgmin + chgmax) <= battpwr*-2 # both at min
+    chgmax.loc[sel] = chgmax.loc[sel] +1
+    sel = chgmax - chgmin < 1e-4 # somehow they're still equal
+    chgmin.loc[sel] = chgmin.loc[sel] -1
+    
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'chgMin_kW'] = chgmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'chgMax_kW'] = chgmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMin_kWh'] = nrgmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'eMax_kWh'] = nrgmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
-
+  #  currently this results in an infesability error from the solver
+  # it appears that sometimes the max charge is above the rated energy of the battery by quite a lot! need to fix. see row 104 of hourly_timeseries_fr154_rs3_3-10a.csv
  
     ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
     # valueseries = timeseries.loc[:,"SR Price Signal ($/kW)"] * (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)'])

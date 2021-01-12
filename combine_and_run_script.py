@@ -1,4 +1,7 @@
 # running examples, Oct 26th
+import vc_wrap as vc
+import combineRuns
+import pandas as pd
 SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"
 # x,y=combineRuns.nsrFn(resultsPath = SVet_Path + "Results/output_run" + str(133) +"_NSR_only/",runID=133,resHour=[0,23],regScenario=1)
 # x.to_csv(SVet_Path + "Data/user_constraints/userconstraints_nsr133_rs1_0-23.csv")
@@ -133,6 +136,19 @@ vc.runWithVC(shortname = ID, description = "user constraints for sr based on run
              NSR_active='yes',DA_active = 'yes', RA_active='yes', RA_dispmode = 1, User_active = 'yes', User_price = y)
 # also infeasible at 2017-07-25 12:00:00 hb
 # ok this time it was infeasible at t 2017-05-22 00:00:00 hb
+# I think cause of infeasibility is RA
+vc.runWithVC(shortname = ID, description = "user constraints for sr based on run 132 for 24h. no RA. 2019 data",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_"+ID+".csv", SR_active='no',
+             NSR_active='yes',DA_active = 'yes', RA_active='no', RA_dispmode = 0, User_active = 'yes', User_price = y)
+#what if I just try to add SR on top of SR user constraints?
+vc.runWithVC(shortname = ID, description = "user constraints for sr based on run 132 for 24h. no RA. also enabled SR. 2019 data",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_"+ID+".csv", SR_active='yes',
+             NSR_active='yes',DA_active = 'yes', RA_active='no', RA_dispmode = 0, User_active = 'yes', User_price = y)
+# 24h SR to compare with SR only
+vc.runWithVC(shortname = ID, description = "user constraints for sr based on run 132 for 24h. no RA. 2019 data",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_"+ID+".csv", SR_active='no',
+             NSR_active='no',DA_active = 'yes', RA_active='no', RA_dispmode = 0, User_active = 'yes', User_price = y)
+
 
 
 x,y=combineRuns.srFn(resultsPath = SVet_Path + "Results/output_run" + str(132) +"_SR_only/",runID=132,resHour=[14,20],regScenario=1)
@@ -211,8 +227,8 @@ vc.runWithVC(shortname = ID, description = "user constraints for RA every day 13
 ## FR scenarios, Dec 8th 
 runID  = 154
 resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_FR_only2019/"
-x,y = cr.frFn(resultsPath, runID, [0,23],3)  
-ID = "fr154_rs3_24h"
+x,y = cr.frFn(resultsPath, runID, [3,10],3)  
+ID = "fr154_rs3_3-10a"
 basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries_2019.csv")
 basedata = basedata.set_index(x.index)
 basedata['Power Min (kW)'] = x['chgMin_kW']
@@ -223,4 +239,22 @@ basedata.to_csv(SVet_Path + "Data/hourly_timeseries_"+ID+".csv")
 vc.runWithVC(shortname = ID, description = "user constraints for fr based on run 154 for 0-23h. no RA",
              Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_"+ID+".csv", SR_active='yes',
              NSR_active='yes',DA_active = 'yes', RA_active='no', RA_dispmode = 0, FR_active = 'no',User_active = 'yes', User_price = y)
+#problem was infeasible
 
+# TEST
+runID  = 154
+resultsPath = SVet_Path + "Results/output_run" + str(runID) + "_FR_only2019/"
+x,y = cr.frFn(resultsPath, runID, [3,10],3)  
+ID = "fr154_rs3_3-10a"
+basedata = pd.read_csv(SVet_Path+"Data/hourly_timeseries_2019.csv")
+basedata = basedata.set_index(x.index)
+basedata['Power Min (kW)'] = x['chgMin_kW']
+basedata['Power Max (kW)'] = x['chgMax_kW']
+basedata['Energy Max (kWh)'] = x['eMax_kWh']
+basedata['Energy Min (kWh)'] = x['eMin_kWh']
+basedata.to_csv(SVet_Path + "Data/hourly_timeseries_"+ID+".csv")
+vc.runWithVC(shortname = ID, description = "user constraints for fr based on run 154 for 3-10a. only DA otherwise",
+             Scenario_time_series_filename = "/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_"+ID+".csv", SR_active='no',
+             NSR_active='no',DA_active = 'yes', RA_active='no', RA_dispmode = 0, FR_active = 'no',User_active = 'yes', User_price = y)
+# still infeasible
+# likely has  to do with interaction between power and energy constraints?

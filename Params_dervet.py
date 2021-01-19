@@ -23,7 +23,6 @@ from pathlib import Path
 from datetime import datetime
 from matplotlib.font_manager import FontProperties
 from Finances import Financial
-import Library as Lib
 
 e_logger = logging.getLogger('Error')
 u_logger = logging.getLogger('User')
@@ -245,7 +244,6 @@ class Params:
         self.Volt = self.read_and_validate('Volt')
 
         self.POI = None  # save attribute to be set after datasets are loaded and all instances are made
-        self.Load = None  # save attribute to be set after datasets are loaded and all instances are made
 
     @classmethod
     def read_and_validate(cls, name):
@@ -876,17 +874,33 @@ class Params:
         if time_series.index.hour[0] == 1:
             # set index to denote the start of the timestamp, not the end of the timestamp
             time_series = time_series.sort_index()  # make sure all the time_stamps are in order
-            yr_included = time_series.iloc[:-1].index.year.unique()
+            time_series['year-1ms'] = (time_series.index - pd.Timedelta('1ms')).year
+            time_series['Start Datetime'] = np.zeros(len(time_series.index))
+            yr_included = (time_series.index - pd.Timedelta('1ms')).year.unique()
+            for year in yr_included:
+                first_day = '1/1/' + str(year)
+                last_day = '1/1/' + str(year + 1)
+
+                new_index = pd.date_range(start=first_day, end=last_day, freq=freq, closed='left')
+                time_series.loc[time_series['year-1ms'] == year, 'Start Datetime'] = new_index
+            time_series = time_series.set_index('Start Datetime', drop=True)
+            time_series = time_series.drop('year-1ms', axis=1)
+            time_series.index.name = 'Start Datetime'
         elif time_series.index.hour[0] == 0:
             time_series = time_series.sort_index()  # make sure all the time_stamps are in order
             time_series['Start Datetime'] = np.zeros(len(time_series.index))
-            yr_included = time_series.index.year.unique()
+            for year in time_series.index.year.unique():
+                first_day = '1/1/' + str(year)
+                last_day = '1/1/' + str(year + 1)
+
+                new_index = pd.date_range(start=first_day, end=last_day, freq=freq, closed='left')
+                time_series.loc[time_series.index.year == year, 'Start Datetime'] = new_index
+            time_series = time_series.set_index('Start Datetime', drop=True)
+            time_series.index.name = 'Start Datetime'
         else:
             e_logger.error('The timeseries does not start at the begining of the day. Please start with hour as 1 or 0.')
             u_logger.error('The timeseries does not start at the begining of the day. Please start with hour as 1 or 0.')
             raise ValueError('The timeseries does not start at the begining of the day. Please start with hour as 1 or 0.')
-
-        time_series.index = Lib.create_timeseries_index(yr_included, freq)
         time_series.columns = [column.strip() for column in time_series.columns]
         return time_series
 
@@ -936,7 +950,9 @@ class Params:
             # fix time_series index
             # TODO: what if the user gives timesteps with hour begining? or a
             time_series_index = time_series_dict[time_series_name].index - pd.Timedelta('1s')
+
             years_included = time_series_index.year.unique()
+
             if any(value < years_included[0] for value in opt_years):
                 e_logger.error("Params Error: The 'opt_years' input starts before the given Time Series.")
                 return False
@@ -979,6 +995,11 @@ class Params:
                 e_logger.error('Params Error: dis_max_rated < dis_min_rated. dis_max_rated should be greater than dis_min_rated')
                 return False
 
+        # if N is not a string, then it (the optimization window) cannot be less than 2 hours
+        if type(scenario['n']) != str and scenario['n'] < 2:
+            e_logger.error('Params Error: scenario optimization window cannot be less than 2 hours')
+            return False
+
         if (dcm is not None or retail_time_shift is not None) and incl_site_load != 1:
             e_logger.error('Error: incl_site_load should be = 1')
             return False
@@ -992,13 +1013,8 @@ class Params:
             # if an event is scheduled to occur, then no solution will be found
             e_logger.error('Please do not include the no_export POI constraint when participating in Deferral.')
             return False
-
         if type(scenario['n']) != str and self.Scenario['n'] > 8764:
             e_logger.error('Params Error: scenario optimization window cannot be greater than 1 year')
-            return False
-        if type(scenario['n']) != str and scenario['n'] < 2:
-            # if N is not a string, then it (the optimization window) cannot be less than 2 hours
-            e_logger.error('Params Error: scenario optimization window cannot be less than 2 hours')
             return False
         return True
 
@@ -1023,6 +1039,20 @@ class Params:
 
         # determine if customer_sided
         self.Scenario['customer_sided'] = (self.DCM is not None) or (self.retailTimeShift is not None)
+
+        # separate price and load timeseries data & determine data required
+        # determine price timeseries columns required
+        # collect power related growth rates (%/yr)
+        # collect value or avoided cost related growth rates (%/yr)
+        required_power_series = []
+        required_price_series = []
+
+        if self.Scenario['incl_site_load']:
+            required_power_series += ['Site Load (kW)']
+
+        self.Scenario['power_timeseries'] = self.Scenario['time_series'].loc[:, required_power_series]
+
+        self.Finance['price_timeseries'] = self.Scenario['time_series'].loc[:, required_price_series]
 
         u_logger.info("Successfully prepared the Scenario and some Finance")
 
@@ -1060,12 +1090,12 @@ class Params:
 
         if self.CAES is not None:
             # check to make sure data was included
-            if 'Natural Gas Price ($/MillionBTU)' not in monthly_columns:
-                e_logger.error('Error: Please include a monthly natural gas price.')
-                raise Exception("Missing 'Natural Gas Price ($/MillionBTU)' from monthly data input")
+            if 'Fuel Price ($/MillionBTU)' not in monthly_columns:
+                e_logger.error('Error: Please include a monthly fuel price.')
+                raise Exception("Missing 'Fuel Price ($/MillionBTU)' from timeseries input")
 
             # add monthly data and scenario case parameters to CAES parameter dictionary
-            self.CAES.update({'natural_gas_price': self.monthly_to_timeseries(freq, self.Scenario['monthly_data'].loc[:, ['Natural Gas Price ($/MillionBTU)']]),
+            self.CAES.update({'fuel_price': self.monthly_to_timeseries(freq, self.Scenario['monthly_data'].loc[:, ['Fuel Price ($/MillionBTU)']]),
                               'binary': self.Scenario['binary'],
                               'slack': self.Scenario['slack'],
                               'dt': self.Scenario['dt']})
@@ -1103,23 +1133,8 @@ class Params:
 
         if self.ICE is not None:
             # add scenario case parameters to diesel parameter dictionary
-            self.ICE.update({'dt': self.Scenario['dt']})
-
-        if self.Load is None and self.Scenario['incl_site_load']:
-            # Load was not included in MP sheet (so no scalar inputs)
-            # AND if the user wants to include load in analysis
-            if 'Site Load (kW)' not in timeseries_columns:
-                e_logger.error('Error: Please include a site load.')
-                raise Exception("Missing 'Site Load (kW)' from timeseries input")
-            self.Load = {'name': "Site Load",
-                         'power_rating': 0,
-                         'duration': 0,
-                         'nsr_response_time': 0,
-                         'sr_response_time': 0,
-                         'startup_time': 0,
-                         'dt': self.Scenario['dt'],
-                         'growth': self.Scenario['def_growth'],
-                         'site_load': time_series.loc[:, 'Site Load (kW)']}
+            self.ICE.update({'dt': self.Scenario['dt'],
+                             'growth': self.Scenario['def_growth']})
 
         u_logger.info("Successfully prepared the Technologies")
 

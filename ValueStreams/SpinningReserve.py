@@ -42,7 +42,9 @@ class SpinningReserve(ValueStream):
         ValueStream.__init__(self, tech, 'SR', dt)
         self.price = params['price']
         self.growth = params['growth']  # growth rate of spinning reserve price (%/yr)
+        self.dis_power = params['dis_power'] #needed to limit sr_d otherwise there is no distinction in reservations to correctly attribute across charging and discharging
         self.duration = params['duration']
+
         self.variable_names = {'sr_c', 'sr_d'}
         self.variables = pd.DataFrame(columns=self.variable_names)
 
@@ -63,14 +65,12 @@ class SpinningReserve(ValueStream):
         return {'sr_c': cvx.Variable(shape=size, name='sr_c'),
                 'sr_d': cvx.Variable(shape=size, name='sr_d')}
 
-    def objective_function(self, variables, mask, load, generation, annuity_scalar=1):
+    def objective_function(self, variables, subs, generation, annuity_scalar=1):
         """ Generates the full objective function, including the optimization variables.
 
         Args:
             variables (Dict): dictionary of variables being optimized
-            mask (DataFrame): A boolean array that is true for indices corresponding to time_series data included
-                in the subs data set
-            load (list, Expression): the sum of load within the system
+            subs (DataFrame): table of load data for the optimization windows
             generation (list, Expression): the sum of generation within the system
             annuity_scalar (float): a scalar value to be multiplied by any yearly cost or benefit that helps capture the cost/benefit over
                         the entire project lifetime (only to be set iff sizing)
@@ -79,21 +79,19 @@ class SpinningReserve(ValueStream):
             The expression of the objective function that it affects. This can be passed into the cvxpy solver.
 
         """
-        p_sr = cvx.Parameter(sum(mask), value=self.price.loc[mask].values, name='price')
+        p_sr = cvx.Parameter(subs.index.size, value=self.price.loc[subs.index].values, name='price')
 
         return {self.name: cvx.sum(-p_sr*variables['sr_c'] - p_sr*variables['sr_d']) * self.dt * annuity_scalar}
 
-    def objective_constraints(self, variables, mask, load, generation, reservations=None):
+    def objective_constraints(self, variables, subs, generation, reservations=None):
         """Default build constraint list method. Used by services that do not have constraints.
 
         Args:
             variables (Dict): dictionary of variables being optimized
-            mask (DataFrame): A boolean array that is true for indices corresponding to time_series data included
-                in the subs data set
-            load (list, Expression): the sum of load within the system
+            subs (DataFrame): Subset of time_series data that is being optimized
             generation (list, Expression): the sum of generation within the system for the subset of time
                 being optimized
-            reservations (Dict): power reservations from dispatch services
+                reservations (Dict): power reservations from dispatch services
 
         Returns:
             constraint_list (list): list of constraints
@@ -102,6 +100,7 @@ class SpinningReserve(ValueStream):
         constraint_list = []
         constraint_list += [cvx.NonPos(-variables['sr_c'])]
         constraint_list += [cvx.NonPos(-variables['sr_d'])]
+        constraint_list += [cvx.NonPos(variables['sr_d'] - self.dis_power)]
         return constraint_list
 
     def power_ene_reservations(self, opt_vars, mask):

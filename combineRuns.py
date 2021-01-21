@@ -16,7 +16,7 @@ import vc_wrap as vc
 # import datetime
 # import sys
 
-SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/"
+SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"#storagevet_dervet/"
 default_params_file = "Model_Parameters_2v1-0-2_default.csv"
 runs_log_file = "Results/runsLog.csv"
 
@@ -235,6 +235,8 @@ def srFn(resultsPath, runID, resHour, regScenario):
     # min res = timeseries['Spinning Reserve (Discharging) (kW)'] + (battcapmax * minsoc/100)
     # chgres = timeseries['Spinning Reserve (Charging) (kW)']
     #avoid infeasibility
+    sel2 = timeseries['Spinning Reserve (Discharging) (kW)'] > battpwrd
+    timeseries.loc[sel2,'Spinning Reserve (Discharging) (kW)'] = battpwrd
     sel = (timeseries['Spinning Reserve (Discharging) (kW)'] + timeseries['Spinning Reserve (Charging) (kW)']) >= battpwr*2
     timeseries.loc[sel,'Spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Spinning Reserve (Discharging) (kW)'] -1
     

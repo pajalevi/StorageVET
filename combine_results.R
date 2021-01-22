@@ -1,9 +1,10 @@
 # iterate through desired runIDs and calculate proforma
 library(plyr)
 library(tidyverse)
-runIDs = c(131:167)
+runIDs = c(132,167,176,177)
 resultsfolder = "/Applications/storagevet2v101/StorageVET-master-git/Results/"
 discount = 0.1
+growth_rate = 1.03
 
 for(i in 1:length(runIDs)){
   # find run folder
@@ -27,7 +28,7 @@ for(i in 1:length(runIDs)){
   
   # Is there a user constraint column? if so, fix it
   if("User Constraints Value" %in% dimnames(proforma)[[2]]){
-    proforma$`User Constraints Value`= max(proforma$`User Constraints Value`) * 1.06^proforma$projectyear
+    proforma$`User Constraints Value`= max(proforma$`User Constraints Value`) * growth_rate^proforma$projectyear
   }
   # need to do this after user constraint calculation
   proforma$projectyear[is.na(proforma$projectyear)] = 0
@@ -53,6 +54,9 @@ for(i in 1:length(runIDs)){
   } else {
     output = rbind.fill(output, tot)
   }
+  
+  write_csv(npvbyyear, path = paste0(resultsfolder, folders[1],'/npv_by_year_runID',runIDs[i],".csv"))
+  write_csv(proforma, path = paste0(resultsfolder, folders[1],'/proforma_recalculated_runID',runIDs[i],".csv"))
 }
 
 write_csv(output,path = paste0(resultsfolder,"npv_runs",min(runIDs),"-",max(runIDs),".csv"))
@@ -61,54 +65,58 @@ dark2scale =c('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a676
 scale = (c("#2f4f4f","#8b4513","#228b22","#000080","#ff0000","#ffff00","#00ff00","#00ffff","#ff00ff","#eee8aa","#6495ed","#ff69b4"))
 # create shorter names for each runID
 runnames = tibble(runID = output$runID)
-runnames$shortname = c("Unconstrained", #131
-                       "SR only", #132
-                       "NSR only", #133
-                       "Unconstrained, no RA", #134
-                       "NSR must-offer", #135
-                       "NSR must-offer no RA", #136
-                       "NSR must-offer no RA", #138
-                       "NSR priority no RA", #139
-                       "SR must-offer", #140
-                       "SR must-offer no RA", #141
-                       "SR priority", #143
-                       "SR priority, no RA", #144
-                       "Unconstrained w FR", #151
-                       "Unconst SR and NSR", #152
-                       "FR only",
-                       "unconstrained 2019",
-                       "SR priority 24h no RA",
-                       "SR priority 24h plus SR test",
-                       "SR priority only") 
-runnames$keyFn = c("Unconstrained",
-                   "SR",
-                   "NSR",
-                   "Unconstrained",
-                   "NSR",
-                   "NSR",
-                   "NSR",
-                   "NSR",
-                   "SR",
-                   "SR",
-                   "SR",
-                   "SR",
-                   "Unconstrained",
-                   "Unconstrained",
-                   "FR",
-                   "Unconstrained",
-                   "SR",
-                   "SR",
-                   "SR")
-#RS1: must offer
-#RS3: priority
+# runnames$shortname = c("Unconstrained", #131
+#                        "SR only", #132
+#                        "NSR only", #133
+#                        "Unconstrained, no RA", #134
+#                        "NSR must-offer", #135
+#                        "NSR must-offer no RA", #136
+#                        "NSR must-offer no RA", #138
+#                        "NSR priority no RA", #139
+#                        "SR must-offer", #140
+#                        "SR must-offer no RA", #141
+#                        "SR priority", #143
+#                        "SR priority, no RA", #144
+#                        "Unconstrained w FR", #151
+#                        "Unconst SR and NSR", #152
+#                        "FR only",
+#                        "unconstrained 2019",
+#                        "SR priority 24h no RA",
+#                        "SR priority 24h plus SR test",
+#                        "SR priority only") 
+# runnames$keyFn = c("Unconstrained",
+#                    "SR",
+#                    "NSR",
+#                    "Unconstrained",
+#                    "NSR",
+#                    "NSR",
+#                    "NSR",
+#                    "NSR",
+#                    "SR",
+#                    "SR",
+#                    "SR",
+#                    "SR",
+#                    "Unconstrained",
+#                    "Unconstrained",
+#                    "FR",
+#                    "Unconstrained",
+#                    "SR",
+#                    "SR",
+#                    "SR")
+runnames$keyFn = c("SR","SR","SR","SR")
+# #RS1: must offer
+# #RS3: priority
 output = merge(output, runnames, all.x = T)
+
+runslog = read_csv(file = paste0(resultsfolder,"runsLog.csv"))
+output = merge(output, runslog[,c("runID","shortname", "description")], by = "runID")
 
 
 # create ability to subselect by runID
 plotTF = TRUE
 if(plotTF){
   ## stacked revenue
-  talloutput = pivot_longer(output, cols = c(-runID,-total,-outputfol,-shortname,-keyFn),names_to = "value_type", values_to = "value")  
+  talloutput = pivot_longer(output, cols = c(-runID,-total,-outputfol,-shortname,-keyFn,-description),names_to = "value_type", values_to = "value")  
   talloutput$name = substr(talloutput$outputfol,10,100)
   tallrevenue = filter(talloutput,value>0)
   ggplot(tallrevenue,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
@@ -118,7 +126,7 @@ if(plotTF){
     # theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=1)) +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
     scale_y_continuous(labels = scales::dollar_format()) +
-    scale_fill_brewer(palette = "Dark2")
+    scale_fill_brewer(palette = "Dark2") 
     # scale_fill_manual(values = scale)
   # can use removeGrid from package ggExtra to remove vertical gridlines in future
   # ggplot(data, aes(fill=condition, y=value, x=specie)) + 

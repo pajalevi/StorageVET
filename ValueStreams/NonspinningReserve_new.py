@@ -1,5 +1,5 @@
 """
-SpinningReserve.py
+NonspinningReserve.py
 
 This Python class contains methods and attributes specific for service analysis within StorageVet.
 """
@@ -26,8 +26,8 @@ u_logger = logging.getLogger('User')
 e_logger = logging.getLogger('Error')
 
 
-class SpinningReserve(ValueStream):
-    """ Spinning Reserve. Each service will be daughters of the ValueStream class.
+class NonspinningReserve(ValueStream):
+    """ Nonspinning Reserve. Each service will be daughters of the ValueStream class.
 
     """
 
@@ -39,11 +39,13 @@ class SpinningReserve(ValueStream):
             tech (Technology): Storage technology object
             dt (float): optimization timestep (hours)
         """
-        ValueStream.__init__(self, tech, 'SR', dt)
+        ValueStream.__init__(self, tech, 'NSR', dt)
         self.price = params['price']
-        self.growth = params['growth']  # growth rate of spinning reserve price (%/yr)
+        self.growth = params['growth']
+        self.dis_power = params['dis_power']
         self.duration = params['duration']
-        self.variable_names = {'sr_c', 'sr_d'}
+
+        self.variable_names = {'nsr_c', 'nsr_d'}
         self.variables = pd.DataFrame(columns=self.variable_names)
 
     @staticmethod
@@ -51,8 +53,8 @@ class SpinningReserve(ValueStream):
         """ Adds optimization variables to dictionary
 
         Variables added:
-            sr_d (Variable): A cvxpy variable for spinning reserve capacity to increase discharging power
-            sr_c (Variable): A cvxpy variable for spinning reserve capacity to decrease charging power
+            nsr_d (Variable): A cvxpy variable for non-spinning reserve capacity to increase discharging power
+            nsr_c (Variable): A cvxpy variable for non-spinning reserve capacity to decrease charging power
 
         Args:
             size (Int): Length of optimization variables to create
@@ -60,17 +62,15 @@ class SpinningReserve(ValueStream):
         Returns:
             Dictionary of optimization variables
         """
-        return {'sr_c': cvx.Variable(shape=size, name='sr_c'),
-                'sr_d': cvx.Variable(shape=size, name='sr_d')}
+        return {'nsr_d': cvx.Variable(shape=size, name='nsr_d'),
+                'nsr_c': cvx.Variable(shape=size, name='nsr_c')}
 
-    def objective_function(self, variables, mask, load, generation, annuity_scalar=1):
+    def objective_function(self, variables, subs, generation, annuity_scalar=1):
         """ Generates the full objective function, including the optimization variables.
 
         Args:
             variables (Dict): dictionary of variables being optimized
-            mask (DataFrame): A boolean array that is true for indices corresponding to time_series data included
-                in the subs data set
-            load (list, Expression): the sum of load within the system
+            subs (DataFrame): table of load data for the optimization windows
             generation (list, Expression): the sum of generation within the system
             annuity_scalar (float): a scalar value to be multiplied by any yearly cost or benefit that helps capture the cost/benefit over
                         the entire project lifetime (only to be set iff sizing)
@@ -79,29 +79,28 @@ class SpinningReserve(ValueStream):
             The expression of the objective function that it affects. This can be passed into the cvxpy solver.
 
         """
-        p_sr = cvx.Parameter(sum(mask), value=self.price.loc[mask].values, name='price')
 
-        return {self.name: cvx.sum(-p_sr*variables['sr_c'] - p_sr*variables['sr_d']) * self.dt * annuity_scalar}
+        p_nsr = cvx.Parameter(subs.index.size, value=self.price.loc[subs.index].values, name='price')
 
-    def objective_constraints(self, variables, mask, load, generation, reservations=None):
+        return {self.name: cvx.sum(-p_nsr*variables['nsr_c'] - p_nsr*variables['nsr_d']) * self.dt * annuity_scalar}
+
+    def objective_constraints(self, variables, subs, generation, reservations=None):
         """Default build constraint list method. Used by services that do not have constraints.
 
         Args:
             variables (Dict): dictionary of variables being optimized
-            mask (DataFrame): A boolean array that is true for indices corresponding to time_series data included
-                in the subs data set
-            load (list, Expression): the sum of load within the system
+            subs (DataFrame): Subset of time_series data that is being optimized
             generation (list, Expression): the sum of generation within the system for the subset of time
                 being optimized
-            reservations (Dict): power reservations from dispatch services
+                reservations (Dict): power reservations from dispatch services
 
         Returns:
-            constraint_list (list): list of constraints
 
         """
         constraint_list = []
-        constraint_list += [cvx.NonPos(-variables['sr_c'])]
-        constraint_list += [cvx.NonPos(-variables['sr_d'])]
+        constraint_list += [cvx.NonPos(-variables['nsr_c'])]
+        constraint_list += [cvx.NonPos(-variables['nsr_d'])]
+        constraint_list += [cvx.NonPos(variables['nsr_d'] - self.dis_power)]
         return constraint_list
 
     def power_ene_reservations(self, opt_vars, mask):
@@ -116,23 +115,18 @@ class SpinningReserve(ValueStream):
         Returns:
             A power reservation and a energy reservation array for the optimization window--
             C_max, C_min, D_max, D_min, E_upper, E, and E_lower (in that order)
-
-        TODO: might be cleaner to pass in technologies when there is more than 1 (instead of saving as attributs
         """
         eta = self.storage.rte
         size = opt_vars['ene'].shape
+
         # calculate reservations
         c_max = 0
-        c_min = opt_vars['sr_c']
+        c_min = opt_vars['nsr_c']
         d_min = 0
-        d_max = opt_vars['sr_d']
+        d_max = opt_vars['nsr_d']
         e_upper = cvx.Parameter(shape=size, value=np.zeros(size), name='e_upper')
         e = cvx.Parameter(shape=size, value=np.zeros(size), name='e')
-        e_lower = opt_vars['sr_c']*eta*self.dt + opt_vars['sr_d']*self.duration
-        # CAISO Example, we need to respond in 10 min and be able to sustain for 2 hrs. So, duration = 2. Probably,
-        # dt = 1. This interpretation assumes that "maintaining" for 2 hrs means we will stop charging and discharge
-        # fully for 2 hrs. Meaning that the change to baseline SOE at the end of the event will be dt*eta*sr_c +
-        # duration*sr_d.
+        e_lower = opt_vars['nsr_c']*eta*self.dt + opt_vars['nsr_d']*self.duration
 
         # save reservation for optimization window
         self.e.append(e)
@@ -172,9 +166,9 @@ class SpinningReserve(ValueStream):
 
         """
         report = pd.DataFrame(index=self.price.index)
-        report.loc[:, "SR Price Signal ($/kW)"] = self.price
-        report.loc[:, 'Spinning Reserve (Charging) (kW)'] = self.variables['sr_c']
-        report.loc[:, 'Spinning Reserve (Discharging) (kW)'] = self.variables['sr_d']
+        report.loc[:, "NSR Price Signal ($/kW)"] = self.price
+        report.loc[:, 'Non-spinning Reserve (Charging) (kW)'] = self.variables['nsr_c']
+        report.loc[:, 'Non-spinning Reserve (Discharging) (kW)'] = self.variables['nsr_d']
         return report
 
     def proforma_report(self, opt_years, results):
@@ -195,12 +189,12 @@ class SpinningReserve(ValueStream):
         """
         proforma, _, _ = ValueStream.proforma_report(self, opt_years, results)
 
-        spin_bid = results.loc[:, 'Spinning Reserve (Charging) (kW)'] + results.loc[:, 'Spinning Reserve (Discharging) (kW)']
-        spinning_prof = np.multiply(spin_bid, self.price) * self.dt
+        nonspin_bid = results.loc[:, 'Non-spinning Reserve (Charging) (kW)'] + results.loc[:, 'Non-spinning Reserve (Discharging) (kW)']
+        nonspinning_prof = np.multiply(nonspin_bid, self.price) * self.dt
 
         for year in opt_years:
-            year_subset = spinning_prof[spinning_prof.index.year == year]
-            proforma.loc[pd.Period(year=year, freq='y'), 'Spinning Reserves'] = year_subset.sum()
+            year_subset = nonspinning_prof[nonspinning_prof.index.year == year]
+            proforma.loc[pd.Period(year=year, freq='y'), 'Non-Spinning Reserves'] = year_subset.sum()
 
         return proforma, None, None
 
@@ -215,6 +209,6 @@ class SpinningReserve(ValueStream):
 
         """
         try:
-            self.price = time_series_data.loc[:, 'SR Price ($/kW)']
+            self.price = time_series_data.loc[:, 'NSR Price ($/kW)']
         except KeyError:
             pass

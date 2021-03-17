@@ -1,0 +1,13 @@
+﻿var,new_value
+Finance_npv_discount_rate,5
+Finance_npv_discount_rate,10
+Battery_ccost_kwh,400
+Scenario_end_year,2034
+Scenario_end_year,2039
+Scenario_n,120
+Battery_daily_cycle_limit,0
+Battery_daily_cycle_limit,2
+Battery_hp,0
+Scenario_monthly_data_filename,/Applications/storagevet2v101/StorageVET-master-git/Data/Monthly_Data_6-kW_RA.csv
+Scenario_time_series_filename,/Applications/storagevet2v101/StorageVET-master-git/Data/hourly_timeseries_2019_onetenth_regulation_prices.csv
+FR_CombinedMarket,1

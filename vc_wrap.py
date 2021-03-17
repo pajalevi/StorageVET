@@ -18,9 +18,9 @@ import shlex
 import datetime
 import sys
 
-SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/"#storagevet_dervet/"
+SVet_Path = "/Applications/storagevet2v101/StorageVET-master-git/storagevet_dervet/"
 # SVet_Path = "/Applications/storagevet2v101/storagevet-1.0.1/" #old SVET, doesnt work
-default_params_file = "Model_Parameters_2v1-0-2_default.csv"
+default_params_file = "Model_Parameters_2v1-0-2_default_updated.csv"
 runs_log_file = "Results/runsLog.csv"
 
 #params = {'ICE_Active': 'yes', 'DR_days': 20, 'RA_idmode' : 'Peak by Month'} # for testing

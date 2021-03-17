@@ -150,15 +150,15 @@ def nsrFn(resultsPath, runID, resHour, regScenario):
     sel = (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)']) >= battpwr*2
     timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] = timeseries.loc[sel,'Non-spinning Reserve (Discharging) (kW)'] -1
       
-    socmin = -1*(battpwrd - timeseries['Non-spinning Reserve (Discharging) (kW)'])
-    socmax = battpwr - timeseries['Non-spinning Reserve (Charging) (kW)']
-    socmin = (battcapmax * (minsoc / 100)) + timeseries['Non-spinning Reserve (Discharging) (kW)']
-    socmax = battcap - rte*timeseries['Non-spinning Reserve (Charging) (kW)']
+    pwrmin = output.loc[:,"pwrmin_kW"]
+    pwrmax = battpwr - timeseries['Spinning Reserve (Discharging) (kW)'] - timeseries['Spinning Reserve (Charging) (kW)']
+    socmin = (battcapmax * (minsoc / 100)) + srdur * timeseries['Spinning Reserve (Discharging) (kW)']
+    socmax = output.loc[:,"socmax_kWh"]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'pwrmin_kW'] = pwrmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'pwrmax_kW'] = pwrmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'socmin_kWh'] = socmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
     output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'socmax_kWh'] = socmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
-
+    
     valueseries = timeseries.loc[:,"NSR Price Signal ($/kW)"] * (timeseries['Non-spinning Reserve (Discharging) (kW)'] + timeseries['Non-spinning Reserve (Charging) (kW)'])
     ll = (timeseries.index.hour >= resHour[0]) & (timeseries.index.hour <= resHour[1])
     value = sum(valueseries[ll])
@@ -324,9 +324,9 @@ def frFn(resultsPath, runID, resHour, regScenario):
   # minimum charging (max discharging) behavior must make room for FR net discharging.
   # wait, minimum charging behavior must make room for max FR power response - this should be based on 'Regulation Down (Charging) (kW)' and 'Regulation Down (Discharging) (kW)'
     # regup is provided by charging less / discharging more. so, power levels must be high enough that they can be reduced for FR call
-    socmin = -1*(battpwrd - timeseries['Regulation Up (Discharging) (kW)'] - timeseries['Regulation Up (Charging) (kW)'])
+    pwrmin = -1*(battpwrd - timeseries['Regulation Up (Discharging) (kW)'] - timeseries['Regulation Up (Charging) (kW)'])
     # regd is provided by charging more / discharging less. so, power levels must be low enough that they can be increased for FR up call
-    socmax = battpwr - timeseries['Regulation Down (Charging) (kW)'] - timeseries['Regulation Down (Discharging) (kW)']
+    pwrmax = battpwr - timeseries['Regulation Down (Charging) (kW)'] - timeseries['Regulation Down (Discharging) (kW)']
     # timeseries['FR Energy Throughput Down (Discharging) (kWh)'] + timeseries['FR Energy Throughput Up (Charging) (kWh)'])
     # energy throuput is given - must have space for throuput. Can either do this with net for hour, or with worst case (disaggregate charge and discharge)
     # for simplicity we will do the net for hour for now
@@ -336,8 +336,8 @@ def frFn(resultsPath, runID, resHour, regScenario):
     # constraining energy limitation. e.g. in the case of energy up provision, the battery is charging full steam, but also discharging quite a bit for FR
     # and the net of these makes for a less constrained energy limit
     # impt to note that FR energy throughput has already factored in charging efficiency
-    socmax = battcap + timeseries['FR Energy Throughput (kWh)'] - socmin * rte #TODO: sanity check the use of rte!!!
-    socmin = (battcap * (minsoc/100)) + timeseries['FR Energy Throughput (kWh)'] - socmax # positive throuput is discharging. socmax is negative to indicate required discharging
+    socmax = battcap + timeseries['FR Energy Throughput (kWh)'] - pwrmin * rte #TODO: sanity check the use of rte!!!
+    socmin = (battcap * (minsoc/100)) + timeseries['FR Energy Throughput (kWh)'] - pwrmax # positive throuput is discharging. socmax is negative to indicate required discharging
     # socmin = battcap + timeseries['Spinning Reserve (Discharging) (kW)']
     # socmax = battcap - rte*timeseries['Spinning Reserve (Charging) (kW)']
     
@@ -349,10 +349,10 @@ def frFn(resultsPath, runID, resHour, regScenario):
     sel = socmax - socmin < 1e-4 # somehow they're still equal
     socmin.loc[sel] = socmin.loc[sel] -1
     
-    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'pwrmin_kW'] = pwrmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
-    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'pwrmax_kW'] = pwrmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
-    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'socmin_kWh'] = socmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
-    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),'socmax_kWh'] = socmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
+    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),"pwrmin_kW"] = pwrmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
+    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),"pwrmax_kW"] = pwrmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
+    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),"socmin_kWh"] = socmin.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
+    output.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1]),"socmax_kWh"] = socmax.loc[(output.index.hour >= resHour[0]) & (output.index.hour <= resHour[1])]
   #  currently this results in an infesability error from the solver
   # it appears that sometimes the max charge is above the rated energy of the battery by quite a lot! need to fix. see row 104 of hourly_timeseries_fr154_rs3_3-10a.csv
  
@@ -364,6 +364,10 @@ def frFn(resultsPath, runID, resHour, regScenario):
     value = sum(valueseries[ll])
   else:
     raise ValueError("regScenario must be 1, 2 or 3")
+
+  #avoid pwr infeasibility
+  sel = output["pwrmax_kW"] - output["pwrmin_kW"] <= 0
+  output.loc[sel,"pwrmax_kW"] = output.loc[sel,"pwrmax_kW"] + 1.02 
 
   return(output, value)
 

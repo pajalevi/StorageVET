@@ -1,0 +1,228 @@
+---
+title: "Baseline and Sensitivities"
+output:
+  html_notebook:
+    code_folding: hide
+---
+
+
+
+```{r message=FALSE, warning=FALSE}
+library(plyr)
+library(tidyverse)
+resultsfolder = "/Applications/storagevet2v101/StorageVET-master-git/Results/"
+# output = read_csv(file = paste0(resultsfolder,"npv_runs51-76.csv"))
+# runslog = read_csv(file = paste0(resultsfolder,"runsLog.csv"))
+# output = merge(output, runslog[,c("runID","shortname", "description")], by = "runID")
+source("/Applications/storagevet2v101/StorageVET-master-git/combine_results.R")
+output = combine_results(runIDs = c(51:76,94), savecsv=F, plotTF=F) #41:48, 78:85, or 86:93
+
+
+dark2scale =c('#1b9e77','#d95f02','#7570b3','#e7298a','#66a61e','#e6ab02','#a6761d','#666666')
+scale = (c("#2f4f4f","#8b4513","#228b22","#000080","#ff0000","#ffff00","#00ff00","#00ffff","#ff00ff","#eee8aa","#6495ed","#ff69b4"))
+darkscale = c(dark2scale,scale)
+
+output$ITC = output$`2MW-5hr Capital Cost` * 0.26
+fivehbatt = output$shortname != "baseline1_4hbatt"
+output$SGIP[fivehbatt] = 10000 * 250 * -1
+output$SGIP[!fivehbatt] = 8000 * 250 * -1
+output$unsub_total = output$total
+output$total = output$unsub_total - output$ITC - output$SGIP #subsidies are negative so that they show up against capital cost
+output$`2MW-5hr Capital Cost` = output$`2MW-5hr Capital Cost` - output$ITC - output$SGIP
+
+outputbl1 = filter(output, str_detect(shortname,"baseline1"))
+outputbl2 = filter(output, str_detect(shortname,"baseline2"))
+baselines = filter(output, shortname == "baseline1" | shortname =="baseline2" | shortname == "baseline1_4hbatt")
+```
+
+Sensitivities were performed on an optimistic and pessimistic baseline. These are the sensitivities applied to the optimistic baseline, which assumes a 15 yr lifetime, 
+```{r message=FALSE, warning=FALSE}
+sensitivities1 = read_csv("/Applications/storagevet2v101/StorageVET-master-git/Data/baseline1_sensitivities.csv")
+print(sensitivities1)
+```
+
+
+
+# Optimistic v Pessimistic Baseline
+The two baselines differ in their capital costs and resulting ITC benefits. As well, the longer lifetime of the optimistic scenario likely drives higher overall revenues.
+As well, the optimistic baseline (baseline 1) participates more in energy arbitrage (DA ETS) than the pessimistic version; this is likely driven by the cap in daily cycles at 1 per day (as informed by sensitivity analysis below). Without the daily cycle limit, the optimistic scenario also provides more spinning reserves. 
+```{r}
+tallbaseline = pivot_longer(baselines, cols = c(-runID,-total,-unsub_total,-outputfol,-shortname,-description),names_to = "value_type", values_to = "value")  #removed -keyFn
+# tallbaseline$name = substr(talloutput$outputfol,10,100)
+tallbaseline$value_type = ordered(tallbaseline$value_type, levels = rev(c("DA ETS","FR Energy Throughput","Regulation Up","Regulation Down","Spinning Reserves","Non-Spinning Reserves",
+                                                                        "Resource AdequacyCapacity Payment", "2MW-5hr Capital Cost","2MW-5hr Fixed O&M Cost","2MW-5hr Variable O&M Costs",
+                                                                        "Site Load Capital Cost","Site Load Fixed O&M Cost",
+                                                                        "Aux Load Cost","ITC","SGIP")))
+# tallbaseline = tallbaseline %>%
+#   arrange(value_type)
+# ggplot(tallbaseline ,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
+#     geom_bar(position="stack", stat = "identity") +
+valuescale =c("light grey","cornsilk",'#1b9e77','#666666',"#2f4f4f","#8b4513",'#e7298a','#d95f02','#7570b3','#66a61e',"#228b22",'#e6ab02','#a6761d',"#6495ed","#000080")
+ggplot(tallbaseline ,aes(x = shortname, y = value, fill = value_type)) +
+    geom_bar(stat = "identity") +
+    geom_hline(yintercept = 0, color = "black") +
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1)) +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    scale_fill_manual(values=valuescale)
+```
+It is not clear why the cycle limit results in greater FR energy throughput, as regulation up and down values are similar between the two cases; it could be that there is a greater imbalance between regulation up and regulation down in the case with a daily cycle limit, and Energy Throughput is tracking this difference.
+The difference between Reg Up and Reg Down in the pessimistic scenario is `r round(baselines[baselines$shortname=="baseline2","Regulation Up"] - baselines[baselines$shortname=="baseline2","Regulation Down"],2)`, and the given FR Energy Throughput is `r round(baselines[baselines$shortname=="baseline2","FR Energy Throughput"],2)`. For the optimistic scenario, the difference is `r round(baselines[baselines$shortname=="baseline1","Regulation Up"] - baselines[baselines$shortname=="baseline1","Regulation Down"],2)`, and the given FR Energy Throughput is only `r round(baselines[baselines$shortname=="baseline1","FR Energy Throughput"],2)`.
+
+## Total NPV
+Both make money, but the optimistic scenario is `r round(100*(baselines[baselines$shortname=="baseline1","total"] - baselines[baselines$shortname=="baseline2","total"])/baselines[baselines$shortname=="baseline2","total"],2)`% more profitable than the pessimistic scenario.
+```{r}
+ggplot(baselines,aes(x = reorder(shortname,-total), y = total)) + geom_col() +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  labs(y = "Total NPV", x="Sensitivity")+ 
+  geom_text(aes(label=round(total)), vjust=-0.2, size = 2.7)
+```
+#Revenue Sources in Baseline Runs
+```{r}
+tallbaseline = pivot_longer(baselines, cols = c(-runID,-total,-unsub_total,-outputfol,-shortname,-description),names_to = "value_type", values_to = "value")  #removed -keyFn
+# tallbaseline$name = substr(talloutput$outputfol,10,100)
+tallbaselinerevenue = filter(tallbaseline, value>0)
+ggplot(tallbaselinerevenue ,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
+    geom_bar(position="stack", stat = "identity") +
+    geom_hline(yintercept = 0, color = "black") +
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1)) +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    scale_fill_manual(values=dark2scale)
+```
+#Sensitivity results on NPV - optimistic baseline
+Increasing the length of the simulation to 120 hours does not have a large effect on the calculated NPV, meaning that we can use longer simulations (necessary with the newer version of storageVET). Reducing the daily cycle limit to 2 (from unlimited) does not have much effect, but reducing it to 1 cycle per day reduces the revenue significantly.
+
+From most to least important sensitivities: FR prices (time_series_filename) cut by 90%, length of the project (increasing or decreasing by 5 years from a baselineof 15 years), discount rate (increasing to 10% or decreasing to 5% from 7%), RA prices (doubling), capital cost per kWh (increase by 25%), housekeeping power, cycle limit. Reducing the daily cycle limit to 2 (from unlimited) does not have much effect, but reducing it to 1 cycle per day reduces the revenue significantly. As well, installing a 4 hr battery instead of a 5 hr battery has a surprisingly small impact on lifetime revenue.
+
+```{r}
+ggplot(outputbl1,aes(x = reorder(shortname,-total), y = total)) + geom_col() +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  labs(y = "Total NPV", x="Sensitivity")+ 
+  geom_text(aes(label=round(total)), vjust=-.1, size = 3)
+
+#normalize
+base = which(outputbl1$shortname == "baseline1")
+bl1_normalized = outputbl1 %>%
+  mutate(tot_diff = total - outputbl1$total[base])
+ggplot(bl1_normalized,aes(x = reorder(substr(shortname,11,100),-total), y = tot_diff)) + geom_col() +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  labs(y = "NPV Delta", x="Sensitivity")+ 
+  geom_text(aes(label=round(tot_diff)), vjust=-.1, size = 2.7)
+
+```
+#Sensitivity results on NPV - pessimistic  baseline
+Most to least important effects examined: 
+1. Length of project (double), 
+2. FR prices, 
+3. length of project (10 -> 15 yrs), 
+4. capital cost (decrease 500 > 400/kWh, or by 20%), 
+5. Increase RA prices (double),
+6. Discount rate (increasing to 10% or decreasing to 5% from 7%),
+7. Removing housekeeping power
+8. Remove daily cycle limit
+9. Increase length of simulation
+
+The results are qualitatively similar to the sensitivities done on the optimistic baseline. Project lifetime and FR prices are very important to both; cycle limit and simulation length are relatively unimportant for each.
+The two show differet results in the importance of capital cost, which is more important in the pessimistic case than RA prices or discount rate. In the optimistic case, capital cost is less important than these other two factors. This difference can be likely attributed to the difference in project lifetime, since a larger lifetime effectively deweights the upfront cost.
+```{r}
+ggplot(outputbl2,aes(x = reorder(shortname,-total), y = total)) + geom_col() +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  labs(y = "Total NPV", x="Sensitivity")+ 
+  geom_text(aes(label=round(total)), vjust=-0.2, size = 2.7)
+
+#normalize
+base = which(outputbl2$shortname == "baseline2")
+bl2_normalized = outputbl2 %>%
+  mutate(tot_diff = total - outputbl2$total[base])
+ggplot(bl2_normalized,aes(x = reorder(substr(shortname,11,100),-total), y = tot_diff)) + geom_col() +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  labs(y = "NPV Delta", x="Sensitivity")+ 
+  geom_text(aes(label=round(tot_diff)), vjust=-.1, size = 2.7)
+```
+
+#Optimistic Baseline: Effect of sensitivities on revenue
+Changing the daily cycle limit notably affects FR energy throughput, and reducing FR prices shifts activity towards spinning reserves and DA ETS
+```{r}
+talloutput = pivot_longer(outputbl1, cols = c(`DA ETS`,`FR Energy Throughput`, `Regulation Up`, `Regulation Down`,`Spinning Reserves`,`Non-Spinning Reserves`,`Resource AdequacyCapacity Payment`,
+                                              `2MW-5hr Capital Cost`, `2MW-5hr Fixed O&M Cost`,`2MW-5hr Variable O&M Costs`,`Site Load Capital Cost`,`Site Load Fixed O&M Cost`, SGIP, ITC),
+                            # c(-runID,-total,-outputfol,-shortname,-description),
+                            names_to = "value_type", values_to = "value")  #removed -keyFn
+talloutput$name = substr(talloutput$outputfol,10,100)
+tallrevenue = filter(talloutput,value>0)
+ggplot(tallrevenue,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
+  geom_bar(position="stack", stat = "identity") +
+  # geom_hline(yintercept = 0, color = "black") + 
+  theme_minimal() + 
+  # theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  scale_fill_brewer(palette = "Dark2") # +
+```
+#Optimistic Baseline: Effect of sensitivities on costs
+The only visible effect is on capital cost, though decreasing FR prices results in some costs associated with FR energy throughput. Interestingly, DA ETS (energy arbitrage) appears as negative in some scenarios, indicating that it was charging in the energy market to be dispatched later in another market.
+```{r}
+  tallcost = filter(talloutput,value<0)
+  tallcost$value_type = ordered(tallcost$value_type, levels = rev(c("DA ETS","FR Energy Throughput","Regulation Up","Regulation Down","Spinning Reserves","Non-Spinning Reserves",
+                                                                          "Resource AdequacyCapacity Payment", "2MW-5hr Capital Cost","2MW-5hr Fixed O&M Cost","2MW-5hr Variable O&M Costs",
+                                                                          "Site Load Capital Cost","Site Load Fixed O&M Cost",
+                                                                          "Aux Load Cost","ITC","SGIP")))
+
+  ggplot(tallcost,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
+    geom_bar(position="stack", stat = "identity") +
+    # geom_hline(yintercept = 0, color = "black") + 
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1)) +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    scale_fill_manual(values = c("light grey","cornsilk",dark2scale))
+```
+#Pessimistic Baseline: Effect of sensitivities on revenue
+```{r}
+talloutput = pivot_longer(outputbl2, cols = c(-runID,-total,-unsub_total,-outputfol,-shortname,-description),names_to = "value_type", values_to = "value")  #removed -keyFn
+talloutput$name = substr(talloutput$outputfol,10,100)
+tallrevenue = filter(talloutput,value>0)
+ggplot(tallrevenue,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
+  geom_bar(position="stack", stat = "identity") +
+  # geom_hline(yintercept = 0, color = "black") + 
+  theme_minimal() + 
+  # theme(axis.text.x = element_text(angle = 90, vjust = 0, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  scale_y_continuous(labels = scales::dollar_format()) +
+  scale_fill_brewer(palette = "Dark2") # +
+```
+#Pessimistic Baseline: Effect of sensitivities on cost
+```{r}
+  tallcost = filter(talloutput,value<0)
+  tallcost$value_type = ordered(tallcost$value_type, levels = rev(c("DA ETS","FR Energy Throughput","Regulation Up","Regulation Down","Spinning Reserves","Non-Spinning Reserves",
+                                                                          "Resource AdequacyCapacity Payment", "2MW-5hr Capital Cost","2MW-5hr Fixed O&M Cost","2MW-5hr Variable O&M Costs",
+                                                                          "Site Load Capital Cost","Site Load Fixed O&M Cost",
+                                                                          "Aux Load Cost","ITC","SGIP")))
+
+  ggplot(tallcost,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
+    geom_bar(position="stack", stat = "identity") +
+    # geom_hline(yintercept = 0, color = "black") + 
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1)) +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    scale_fill_manual(values = c("light grey","cornsilk",dark2scale))
+```
+
+
+
+
+# Takeaways and todos:
+Need to look into effects on FR Energy Throughput and understand what is happening there.
+
+Also to do: Add lower cap costs to optimistic sensitivities (10% lower?), and look at ITC & SGIP assumption sensitivities.
+
+Also need to look into a more rigorous way to quantify sensitivity importance especially if I end up taking a monte carlo sampling approach for uncertainties. 

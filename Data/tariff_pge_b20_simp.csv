@@ -1,0 +1,29 @@
+Billing Period,Start Month,End Month,Start Time,End Time,Excluding Start Time,Excluding End Time,Weekday?,Value,Charge,Name_optional
+1,1,2,1,16,,,2,0.10531,Energy,0 indicates that the period applies to weekends
+2,1,2,17,21,,,2,0.13592,Energy,1 indicates that the period applies to weekdays
+3,1,2,22,24,,,2,0.10531,Energy,https://www.pge.com/tariffs/assets/pdf/tariffbook/ELEC_SCHEDS_B-19.pdf 
+4,3,5,1,9,,,2,0.10531,Energy,https://www.pge.com/pge_global/common/pdfs/your-account/your-bill/understand-your-bill/bill-inserts/2020/0320-BizRateOptions.pdf
+5,3,5,10,14,,,2,0.06431,Energy,2 indicates that the period applies to both weekdays and weeknds
+6,3,5,15,16,,,2,0.10531,Energy,Please note that start and end ranges are inclusive.
+7,3,5,17,21,,,2,0.13592,Energy,Times are in units of hour-ending
+8,3,5,22,24,,,2,0.10531,Energy,The only possible values for Charge are: 'demand' or 'energy' (not case sensitive)
+9,6,9,1,14,,,2,0.10547,Energy,The only possible values for Charge are: 'demand' or 'energy' (not case sensitive)
+10,6,9,15,16,,,2,0.12561,Energy,The only possible values for Charge are: 'demand' or 'energy' (not case sensitive)
+11,6,9,17,21,,,2,0.15111,Energy,
+12,6,9,22,23,,,2,0.12561,Energy,
+13,6,9,24,24,,,2,0.10547,Energy,
+14,10,12,1,16,,,2,0.10531,Energy,
+15,10,12,17,21,,,2,0.13592,Energy,
+16,10,12,22,24,,,2,0.10531,Energy,
+17,1,1,1,24,,,2,21.56,Demand,
+18,2,2,1,24,,,2,21.56,Demand,
+19,3,3,1,24,,,2,21.56,Demand,
+20,4,4,1,24,,,2,21.56,Demand,
+21,5,5,1,24,,,2,21.56,Demand,
+22,6,6,1,24,,,2,24.94,Demand,
+23,7,7,1,24,,,2,24.94,Demand,
+24,8,8,1,24,,,2,24.94,Demand,
+25,9,9,1,24,,,2,24.94,Demand,
+26,10,10,1,24,,,2,21.56,Demand,
+27,11,11,1,24,,,2,21.56,Demand,
+28,12,12,1,24,,,2,21.56,Demand,

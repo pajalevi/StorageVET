@@ -54,7 +54,7 @@ class BatteryTech(Storage):
 
         # calculate current degrade_perc since installation
         if self.incl_cycle_degrade:
-            start_dttm = opt_agg.index[0].to_timestamp()
+            start_dttm = opt_agg.index[0].to_pydatetime()
             self.calc_degradation(None, self.install_date, start_dttm)
             self.degrade_data['degrade_perc'] = self.degrade_perc
             self.degrade_data['eff_e_cap'] = self.apply_degradation()

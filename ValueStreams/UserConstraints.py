@@ -73,7 +73,9 @@ class UserConstraints(ValueStream):
         # if both a power max and min are given, then preform this check to check for infeasibility
         if type(power_max) == pd.Series and type(power_min) == pd.Series:
             if (power_min > power_max).any():
-                raise Exception('User given power constraints are not feasible.')
+                t = (power_min > power_max)
+                errorlist = ([i for i,x in enumerate(t) if x])
+                raise Exception('User given power constraints are not feasible for lines' + str(errorlist))
 
         # if both a energy max and min are given, then preform this check to check for infeasibility
         if type(energy_min) == pd.Series and type(energy_max) == pd.Series:

@@ -36,7 +36,7 @@ if(T){
   # output = rbind.fill(caiso_output, ercot_output, nyiso_output, isone_output, pjm_output)
   
   isos = c("caiso","ercot","nyiso","isone","pjm")
-  iso_runIDs = list(c(115:142),c(150:177),c(178:205),c(206:233),c(234:261))
+  iso_runIDs = list(c(263:282),c(283:302),c(303:322),c(323:342),c(343:362))
   
   for(i in 1:length(isos)){
     temp_output = combine_results(runIDs = iso_runIDs[[i]], savecsv=F, plotTF=F)
@@ -54,7 +54,7 @@ if(T){
     }
   }
   
-  iso_lowFR_runIDs = list(c(263:282),c(283:302),c(303:322),c(323:342),c(343:362))
+  #iso_lowFR_runIDs = list(c(263:282),c(283:302),c(303:322),c(323:342),c(343:362))
   
 } else {
   # output = read_csv(file = paste0(resultsfolder,"npv_runs78-85.csv"))

@@ -24,8 +24,8 @@ darkscale = c(dark2scale,scale)
 
 output$ITC = output$`2MW-5hr Capital Cost` * 0.26
 fivehbatt = output$shortname != "baseline1_4hbatt"
-output$SGIP[fivehbatt] = 10000 * 250 * -1
-output$SGIP[!fivehbatt] = 8000 * 250 * -1
+output$SGIP[fivehbatt] = 0#10000 * 250 * -1
+output$SGIP[!fivehbatt] = 0#8000 * 250 * -1
 output$unsub_total = output$total
 output$total = output$unsub_total - output$ITC - output$SGIP #subsidies are negative so that they show up against capital cost
 output$`2MW-5hr Capital Cost` = output$`2MW-5hr Capital Cost` - output$ITC - output$SGIP
@@ -57,8 +57,10 @@ tallbaseline$value_type = ordered(tallbaseline$value_type, levels = rev(c("DA ET
 #   arrange(value_type)
 # ggplot(tallbaseline ,aes(fill = value_type, x = reorder(shortname,-total), y = value)) +
 #     geom_bar(position="stack", stat = "identity") +
-valuescale =c("light grey","cornsilk",'#1b9e77','#666666',"#2f4f4f","#8b4513",'#e7298a','#d95f02','#7570b3','#66a61e',"#228b22",'#e6ab02','#a6761d',"#6495ed","#000080")
-ggplot(tallbaseline ,aes(x = shortname, y = value, fill = value_type)) +
+valuescale =c("light grey",'#1b9e77','#666666',"#2f4f4f","#8b4513",'#e7298a','#d95f02','#7570b3','#66a61e',#"#228b22",
+              '#e6ab02',
+'#a6761d',"#6495ed","#000080")
+ggplot(filter(tallbaseline,value!=0) ,aes(x = reorder(shortname,-total), y = value, fill = value_type)) +
     geom_bar(stat = "identity") +
     geom_hline(yintercept = 0, color = "black") +
     theme_minimal() + 
@@ -108,13 +110,16 @@ ggplot(outputbl1,aes(x = reorder(shortname,-total), y = total)) + geom_col() +
 #normalize
 base = which(outputbl1$shortname == "baseline1")
 bl1_normalized = outputbl1 %>%
-  mutate(tot_diff = total - outputbl1$total[base])
-ggplot(bl1_normalized,aes(x = reorder(substr(shortname,11,100),-total), y = tot_diff)) + geom_col() +
+  mutate(tot_diff = total - outputbl1$total[base],
+         pct_diff = tot_diff /outputbl1$total[base] )
+ggplot(bl1_normalized,aes(x = reorder(substr(shortname,11,100),total), y = pct_diff)) + geom_col() +
   theme_minimal() +
-  scale_y_continuous(labels = scales::dollar_format()) +
+  #scale_y_continuous(labels = scales::dollar_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
   labs(y = "NPV Delta", x="Sensitivity")+ 
-  geom_text(aes(label=round(tot_diff)), vjust=-.1, size = 2.7)
+  geom_text(aes(label=round(pct_diff,3)*100), hjust=-.2, size = 2.7) +
+  coord_flip()
 
 ```
 #Sensitivity results on NPV - pessimistic  baseline

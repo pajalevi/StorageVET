@@ -29,18 +29,19 @@ combine_results = function(runIDs, savecsv = F, plotTF = F,resultsfolder = "/App
     inputs = read_csv(paste0(resultsfolder, folders[1],'/params_run',runIDs[i],".csv"))
     discount_rate = as.numeric(inputs[inputs$Tag == "Finance" & inputs$Key == "npv_discount_rate","Value"])/100
     inflation_rate = as.numeric(inputs[inputs$Tag == "Finance" & inputs$Key == "inflation_rate","Value"])/100
-    discount = discount_rate + inflation_rate
+    discount = discount_rate #+ inflation_rate
     proforma = read_csv(paste0(resultsfolder, folders[1],'/pro_forma_runID',runIDs[i],".csv"))
     #create project year index for calculations
     proforma$year = as.numeric(proforma$X1)
     minyear = min(proforma$year,na.rm=T)
-    proforma$projectyear = proforma$year - minyear
+    proforma$projectyear = proforma$year - minyear +1
     
     # Is there a user constraint column? if so, fix it
     if("User Constraints Value" %in% dimnames(proforma)[[2]]){
       proforma$`User Constraints Value`= max(proforma$`User Constraints Value`) * (1 + inflation_rate)^proforma$projectyear
+      #proforma$`User Constraints Value`= 72000 * (1 + inflation_rate)^proforma$projectyear
     }
-    # need to do this after user constraint calculation
+    # need to do this after user constraint calculation - "CAPEX Year" > NA > 0
     proforma$projectyear[is.na(proforma$projectyear)] = 0
     
     # calculate NPV for each column
@@ -194,3 +195,44 @@ combine_results = function(runIDs, savecsv = F, plotTF = F,resultsfolder = "/App
     return(output)
 }
 
+
+
+
+combine_kwyr_value = function(runIDs, savecsv = F, resultsfolder = "/Applications/storagevet2v101/StorageVET-master-git/Results/"){
+  found_kwyr = FALSE
+  
+  for(i in 1:length(runIDs)){
+    # find run folder
+    folders = list.files(resultsfolder, pattern = paste0("output_run",runIDs[i],"_"))
+    if(length(folders) > 1){stop("too many output folders identified")
+    } else if(length(folders) ==0){
+      print(paste("run number", runIDs[i],"does not have an output folder and is skipped"))
+      next()
+    }
+    
+    # load kwyr value
+    if(!file.exists(paste0(resultsfolder, folders[1],'/_kwyr_values_run',runIDs[i],".csv"))){
+      print(paste("run number", runIDs[i],"does not have a kwyr_value file and is skipped"))
+      next()
+    }
+    found_kwyr = T
+    kwyrvalue = read_csv(paste0(resultsfolder, folders[1],'/_kwyr_values_run',runIDs[i],".csv"))
+    kwyrvalue$runID = runIDs[i]
+
+    # add NPV to output framework
+    if(i==1){
+      kwyr_output = kwyrvalue
+    } else {
+      kwyr_output = rbind.fill(kwyr_output, kwyrvalue)
+    }
+  }
+  
+  runslog = read_csv(file = paste0(resultsfolder,"runsLog.csv"))
+  kwyr_output = merge(kwyr_output, runslog[,c("runID","shortname", "description")], by = "runID")
+  
+  if(found_kwyr){
+    return(kwyr_output)
+  } else {
+    error("No kwyr values were found for the runIDs provided")
+  }
+}

@@ -42,7 +42,7 @@ if(T){
     temp_output = combine_results(runIDs = iso_runIDs[[i]], savecsv=F, plotTF=F)
     temp_output$iso = isos[i]
     
-    temp_kwyr = combine_kwyr_value(runIDs = iso_runIDs[[i]], savecsv=F)
+    temp_kwyr = combine_kwyr_value(runIDs = iso_runIDs[[i]], savecsv=F) #first must source kw-yr-value.py
     temp_kwyr$iso = isos[i]
     
     if(i==1){
@@ -139,7 +139,7 @@ How does NPV change relative to no RA constraints?
 output_2 = output_constrained %>%
   group_by(iso) %>%
   mutate(delta_NPV = total- max(total),
-         delta_NPV_frac = (total- max(total))/max(total))
+         delta_NPV_frac = -1*abs((total- max(total))/max(total)))
 
 ggplot(output_2,aes(x=Num_RA_Events, y =delta_NPV)) + 
   # geom_col() +facet_wrap(~iso)+
